@@ -13,25 +13,27 @@ CREATE OR REPLACE PROCEDURE ETL_IDW.SP_CD_RES_SMR_B2B_MAJOR_PROD (
   INHERIT SPECIAL REGISTERS
   OLD SAVEPOINT LEVEL
 BEGIN
-  /*******************************************************************************/
-  /* 1.프 로 젝 트 : ARES                                                        */
-  /* 2.모       듈 :                                                             */
-  /* 3.프로그램 ID : SP_CD_RES_SMR_B2B_MAJOR_PROD                                */
-  /*                                                                             */
-  /* 4.설       명 : SMART B2C/B2B 매출/영업이익 추이를 Result Set으로 return함  */
-  /*                                                                             */
-  /* 5.입 력 변 수 :                                                             */
-  /*                                                                             */
-  /*                 IN P_BASIS_YYYYMM( 기준월 )                                 */
-  /*                 IN P_SUBSDR_CD( 법인 )                                      */
-  /*                 IN P_CODE_TYPE( B2C/B2B구분 )                               */
-  /* 6.파 일 위 치 :                                                             */
-  /* 7.변 경 이 력 :                                                             */
-  /*                                                                             */
-  /*  version  작성자  일      자  내                 용  요   청   자           */
-  /*  -------  ------  ----------  ---------------------  ------------           */
-  /*  1.0      shlee   2016.01.07  최초 작성              신명식c                */
-  /*******************************************************************************/
+  /************************************************************************************************/
+  /* 1.프 로 젝 트 : ARES                                                                         */
+  /* 2.모       듈 :                                                                              */
+  /* 3.프로그램 ID : SP_CD_RES_SMR_B2B_MAJOR_PROD                                                 */
+  /*                                                                                              */
+  /* 4.설       명 : SMART B2C/B2B 매출/영업이익 추이를 Result Set으로 return함                   */
+  /*                                                                                              */
+  /* 5.입 력 변 수 :                                                                              */
+  /*                                                                                              */
+  /*                 IN P_BASIS_YYYYMM( 기준월 )                                                  */
+  /*                 IN P_SUBSDR_CD( 법인 )                                                       */
+  /*                 IN P_CODE_TYPE( B2C/B2B구분 )                                                */
+  /* 6.파 일 위 치 :                                                                              */
+  /* 7.변 경 이 력 :                                                                              */
+  /*                                                                                              */
+  /*  version  작성자  일      자  내                 용                             요   청   자 */
+  /*  -------  ------  ----------  ------------------------------------------------  ------------ */
+  /*  1.0      shlee   2016.01.07  최초 작성                                                      */
+  /*  1.1      shlee   2016.01.08  법인전체/사업부 카테고리 코드변경                              */
+  /*                               - BEP_SMART_PROD -> BEP_SMART_DIV                              */
+  /************************************************************************************************/
     DECLARE v_etl_job_no                 VARCHAR(40)   DEFAULT 'SP_CD_RES_SMR_B2B_MAJOR_PROD';
     DECLARE v_load_start_timestamp       TIMESTAMP     DEFAULT NULL;
     DECLARE v_serial_no                  VARCHAR(30)   DEFAULT NULL;
@@ -57,7 +59,7 @@ BEGIN
       FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
       WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 2 YEAR, 'YYYY')||'01' AND P_BASIS_YYYYMM
       AND    A.SCENARIO_TYPE_CD = 'AC0'
-      AND    A.CAT_CD = 'BEP_SMART_PROD'
+      AND    A.CAT_CD = 'BEP_SMART_DIV'
       AND    A.KPI_CD in ('SALE', 'COI')
       AND    A.SUBSDR_CD = P_SUBSDR_CD
       GROUP BY A.SUBSDR_CD
@@ -67,7 +69,7 @@ BEGIN
       UNION ALL
 
 -- 2.사업부합계
-      SELECT B.DISP_NM            AS COL_INDEX         
+      SELECT B.DISP_NM            AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
             ,A.BASE_YYYYMM        AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
@@ -86,7 +88,7 @@ BEGIN
             ) B
       WHERE A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 2 YEAR, 'YYYY')||'01' AND P_BASIS_YYYYMM
       AND   A.SCENARIO_TYPE_CD = 'AC0'
-      AND   A.CAT_CD = 'BEP_SMART_PROD'
+      AND   A.CAT_CD = 'BEP_SMART_DIV'
       AND   A.KPI_CD in ('SALE', 'COI')
       AND   A.SUBSDR_CD = P_SUBSDR_CD
       AND   A.DIV_CD IN ('GLT','DCT','SDT')
@@ -99,7 +101,7 @@ BEGIN
       UNION ALL
 
 -- 3 LEVEL2
-      SELECT B.PROD_KOR_NM        AS COL_INDEX         
+      SELECT B.PROD_KOR_NM        AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
             ,A.BASE_YYYYMM        AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
@@ -109,7 +111,7 @@ BEGIN
            ,(SELECT ATTRIBUTE1    AS PROD_CD
                    ,DISPLAY_NAME1 AS PROD_KOR_NM
                    ,DISPLAY_NAME2 AS PROD_ENG_NM
-             FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER 
+             FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
              WHERE  CODE_TYPE = 'SMR_PROD_MST'
              AND    USE_FLAG  = 'Y'
              AND    ATTRIBUTE2= 'B2B_DIV'
@@ -129,7 +131,7 @@ BEGIN
       UNION ALL
 
 -- 4 LEVEL3
-      SELECT B.PROD_KOR_NM        AS COL_INDEX         
+      SELECT B.PROD_KOR_NM        AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
             ,A.BASE_YYYYMM        AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
@@ -139,7 +141,7 @@ BEGIN
            ,(SELECT ATTRIBUTE1    AS PROD_CD
                    ,DISPLAY_NAME1 AS PROD_KOR_NM
                    ,DISPLAY_NAME2 AS PROD_ENG_NM
-             FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER 
+             FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
              WHERE  CODE_TYPE = 'SMR_PROD_MST'
              AND    USE_FLAG  = 'Y'
              AND    ATTRIBUTE2= 'B2B_DIV'
@@ -190,13 +192,13 @@ BEGIN
               FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
               WHERE  A.BASE_YYYYMM = P_BASIS_YYYYMM
               AND    A.SCENARIO_TYPE_CD = 'AC0'
-              AND    A.CAT_CD = 'BEP_SMART_PROD'
+              AND    A.CAT_CD = 'BEP_SMART_DIV'
               AND    A.KPI_CD in ('SALE', 'COI')
               AND    A.SUBSDR_CD = P_SUBSDR_CD
               GROUP BY A.SUBSDR_CD
                  ,A.KPI_CD
-            ) B              
-      WHERE A.KPI_CD = B.KPI_CD  
+            ) B
+      WHERE A.KPI_CD = B.KPI_CD
 
       UNION ALL
 
@@ -227,7 +229,7 @@ BEGIN
                     ) B
               WHERE A.BASE_YYYYMM = TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
               AND   A.SCENARIO_TYPE_CD = 'AC0'
-              AND   A.CAT_CD = 'BEP_SMART_PROD'
+              AND   A.CAT_CD = 'BEP_SMART_DIV'
               AND   A.KPI_CD in ('SALE', 'COI')
               AND   A.SUBSDR_CD = P_SUBSDR_CD
               AND   A.DIV_CD IN ('GLT','DCT','SDT')
@@ -255,7 +257,7 @@ BEGIN
                     ) B
               WHERE  A.BASE_YYYYMM = P_BASIS_YYYYMM
               AND   A.SCENARIO_TYPE_CD = 'AC0'
-              AND   A.CAT_CD = 'BEP_SMART_PROD'
+              AND   A.CAT_CD = 'BEP_SMART_DIV'
               AND   A.KPI_CD in ('SALE', 'COI')
               AND   A.SUBSDR_CD = P_SUBSDR_CD
               AND   A.DIV_CD IN ('GLT','DCT','SDT')
@@ -263,9 +265,9 @@ BEGIN
               GROUP BY B.DISP_NM
                       ,A.SUBSDR_CD
                       ,A.KPI_CD
-            ) B              
+            ) B
       WHERE A.KPI_CD = B.KPI_CD
-      AND   A.COL_INDEX = B.COL_INDEX  
+      AND   A.COL_INDEX = B.COL_INDEX
 
       UNION ALL
 
@@ -278,7 +280,7 @@ BEGIN
                         WHEN A.KPI_CD = 'COI'  THEN B.AMOUNT - A.AMOUNT END AS AMOUNT
                   ,'0'                  AS SORT_KEY
       FROM   (
-              SELECT B.PROD_KOR_NM        AS COL_INDEX         
+              SELECT B.PROD_KOR_NM        AS COL_INDEX
                     ,A.SUBSDR_CD          AS SUBSDR_CD
                     ,A.BASE_YYYYMM        AS BASE_YYYYMM
                     ,A.KPI_CD             AS KPI_CD
@@ -288,7 +290,7 @@ BEGIN
                    ,(SELECT ATTRIBUTE1    AS PROD_CD
                            ,DISPLAY_NAME1 AS PROD_KOR_NM
                            ,DISPLAY_NAME2 AS PROD_ENG_NM
-                     FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER 
+                     FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
                      WHERE  CODE_TYPE = 'SMR_PROD_MST'
                      AND    USE_FLAG  = 'Y'
                      AND    ATTRIBUTE2= 'B2B_DIV'
@@ -305,7 +307,7 @@ BEGIN
                       ,A.KPI_CD
              ) A
            ,(
-              SELECT B.PROD_KOR_NM        AS COL_INDEX         
+              SELECT B.PROD_KOR_NM        AS COL_INDEX
                     ,A.SUBSDR_CD          AS SUBSDR_CD
                     ,A.BASE_YYYYMM        AS BASE_YYYYMM
                     ,A.KPI_CD             AS KPI_CD
@@ -315,7 +317,7 @@ BEGIN
                    ,(SELECT ATTRIBUTE1    AS PROD_CD
                            ,DISPLAY_NAME1 AS PROD_KOR_NM
                            ,DISPLAY_NAME2 AS PROD_ENG_NM
-                     FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER 
+                     FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
                      WHERE  CODE_TYPE = 'SMR_PROD_MST'
                      AND    USE_FLAG  = 'Y'
                      AND    ATTRIBUTE2= 'B2B_DIV'
@@ -330,9 +332,9 @@ BEGIN
                       ,A.SUBSDR_CD
                       ,A.BASE_YYYYMM
                       ,A.KPI_CD
-            ) B              
+            ) B
       WHERE A.KPI_CD = B.KPI_CD
-      AND   A.COL_INDEX = B.COL_INDEX  
+      AND   A.COL_INDEX = B.COL_INDEX
 
       UNION ALL
 
@@ -346,7 +348,7 @@ BEGIN
                         WHEN A.KPI_CD = 'COI'  THEN B.AMOUNT - A.AMOUNT END AS AMOUNT
                   ,'0'                  AS SORT_KEY
       FROM   (
-              SELECT B.PROD_KOR_NM        AS COL_INDEX         
+              SELECT B.PROD_KOR_NM        AS COL_INDEX
                     ,A.SUBSDR_CD          AS SUBSDR_CD
                     ,A.BASE_YYYYMM        AS BASE_YYYYMM
                     ,A.KPI_CD             AS KPI_CD
@@ -356,7 +358,7 @@ BEGIN
                    ,(SELECT ATTRIBUTE1    AS PROD_CD
                            ,DISPLAY_NAME1 AS PROD_KOR_NM
                            ,DISPLAY_NAME2 AS PROD_ENG_NM
-                     FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER 
+                     FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
                      WHERE  CODE_TYPE = 'SMR_PROD_MST'
                      AND    USE_FLAG  = 'Y'
                      AND    ATTRIBUTE2= 'B2B_DIV'
@@ -373,7 +375,7 @@ BEGIN
                       ,A.KPI_CD
              ) A
            ,(
-              SELECT B.PROD_KOR_NM        AS COL_INDEX         
+              SELECT B.PROD_KOR_NM        AS COL_INDEX
                     ,A.SUBSDR_CD          AS SUBSDR_CD
                     ,A.BASE_YYYYMM        AS BASE_YYYYMM
                     ,A.KPI_CD             AS KPI_CD
@@ -383,7 +385,7 @@ BEGIN
                    ,(SELECT ATTRIBUTE1    AS PROD_CD
                            ,DISPLAY_NAME1 AS PROD_KOR_NM
                            ,DISPLAY_NAME2 AS PROD_ENG_NM
-                     FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER 
+                     FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
                      WHERE  CODE_TYPE = 'SMR_PROD_MST'
                      AND    USE_FLAG  = 'Y'
                      AND    ATTRIBUTE2= 'B2B_DIV'
@@ -398,9 +400,9 @@ BEGIN
                       ,A.SUBSDR_CD
                       ,A.BASE_YYYYMM
                       ,A.KPI_CD
-            ) B              
+            ) B
       WHERE A.KPI_CD = B.KPI_CD
-      AND   A.COL_INDEX = B.COL_INDEX  
+      AND   A.COL_INDEX = B.COL_INDEX
 
       UNION ALL
 
@@ -415,7 +417,7 @@ BEGIN
       FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
       WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||'01' AND TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
       AND    A.SCENARIO_TYPE_CD = 'AC0'
-      AND    A.CAT_CD = 'BEP_SMART_PROD'
+      AND    A.CAT_CD = 'BEP_SMART_DIV'
       AND    A.KPI_CD in ('SALE', 'COI')
       AND    A.SUBSDR_CD = P_SUBSDR_CD
       GROUP BY A.SUBSDR_CD
@@ -425,7 +427,7 @@ BEGIN
       UNION ALL
 
 -- 2.사업부합계
-      SELECT B.DISP_NM            AS COL_INDEX         
+      SELECT B.DISP_NM            AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
             ,MIN(BASE_YYYYMM)||'-'||MAX(BASE_YYYYMM)        AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
@@ -444,7 +446,7 @@ BEGIN
             ) B
       WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||'01' AND TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
       AND   A.SCENARIO_TYPE_CD = 'AC0'
-      AND   A.CAT_CD = 'BEP_SMART_PROD'
+      AND   A.CAT_CD = 'BEP_SMART_DIV'
       AND   A.KPI_CD in ('SALE', 'COI')
       AND   A.SUBSDR_CD = P_SUBSDR_CD
       AND   A.DIV_CD IN ('GLT','DCT','SDT')
@@ -457,7 +459,7 @@ BEGIN
       UNION ALL
 
 -- 3 LEVEL2
-      SELECT B.PROD_KOR_NM        AS COL_INDEX         
+      SELECT B.PROD_KOR_NM        AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
             ,MIN(BASE_YYYYMM)||'-'||MAX(BASE_YYYYMM)        AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
@@ -467,7 +469,7 @@ BEGIN
            ,(SELECT ATTRIBUTE1    AS PROD_CD
                    ,DISPLAY_NAME1 AS PROD_KOR_NM
                    ,DISPLAY_NAME2 AS PROD_ENG_NM
-             FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER 
+             FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
              WHERE  CODE_TYPE = 'SMR_PROD_MST'
              AND    USE_FLAG  = 'Y'
              AND    ATTRIBUTE2= 'B2B_DIV'
@@ -487,7 +489,7 @@ BEGIN
       UNION ALL
 
 -- 4 LEVEL3
-      SELECT B.PROD_KOR_NM        AS COL_INDEX         
+      SELECT B.PROD_KOR_NM        AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
             ,MIN(BASE_YYYYMM)||'-'||MAX(BASE_YYYYMM)        AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
@@ -497,7 +499,7 @@ BEGIN
            ,(SELECT ATTRIBUTE1    AS PROD_CD
                    ,DISPLAY_NAME1 AS PROD_KOR_NM
                    ,DISPLAY_NAME2 AS PROD_ENG_NM
-             FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER 
+             FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
              WHERE  CODE_TYPE = 'SMR_PROD_MST'
              AND    USE_FLAG  = 'Y'
              AND    ATTRIBUTE2= 'B2B_DIV'
@@ -526,7 +528,7 @@ BEGIN
       FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
       WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 0 YEAR, 'YYYY')||'01' AND TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 0 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
       AND    A.SCENARIO_TYPE_CD = 'AC0'
-      AND    A.CAT_CD = 'BEP_SMART_PROD'
+      AND    A.CAT_CD = 'BEP_SMART_DIV'
       AND    A.KPI_CD in ('SALE', 'COI')
       AND    A.SUBSDR_CD = P_SUBSDR_CD
       GROUP BY A.SUBSDR_CD
@@ -536,7 +538,7 @@ BEGIN
       UNION ALL
 
 -- 2.사업부합계
-      SELECT B.DISP_NM            AS COL_INDEX         
+      SELECT B.DISP_NM            AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
             ,MIN(BASE_YYYYMM)||'-'||MAX(BASE_YYYYMM)        AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
@@ -555,7 +557,7 @@ BEGIN
             ) B
       WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 0 YEAR, 'YYYY')||'01' AND TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 0 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
       AND   A.SCENARIO_TYPE_CD = 'AC0'
-      AND   A.CAT_CD = 'BEP_SMART_PROD'
+      AND   A.CAT_CD = 'BEP_SMART_DIV'
       AND   A.KPI_CD in ('SALE', 'COI')
       AND   A.SUBSDR_CD = P_SUBSDR_CD
       AND   A.DIV_CD IN ('GLT','DCT','SDT')
@@ -568,7 +570,7 @@ BEGIN
       UNION ALL
 
 -- 3 LEVEL2
-      SELECT B.PROD_KOR_NM        AS COL_INDEX         
+      SELECT B.PROD_KOR_NM        AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
             ,MIN(BASE_YYYYMM)||'-'||MAX(BASE_YYYYMM)        AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
@@ -578,7 +580,7 @@ BEGIN
            ,(SELECT ATTRIBUTE1    AS PROD_CD
                    ,DISPLAY_NAME1 AS PROD_KOR_NM
                    ,DISPLAY_NAME2 AS PROD_ENG_NM
-             FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER 
+             FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
              WHERE  CODE_TYPE = 'SMR_PROD_MST'
              AND    USE_FLAG  = 'Y'
              AND    ATTRIBUTE2= 'B2B_DIV'
@@ -598,7 +600,7 @@ BEGIN
       UNION ALL
 
 -- 4 LEVEL3
-      SELECT B.PROD_KOR_NM        AS COL_INDEX         
+      SELECT B.PROD_KOR_NM        AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
             ,MIN(BASE_YYYYMM)||'-'||MAX(BASE_YYYYMM)        AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
@@ -608,7 +610,7 @@ BEGIN
            ,(SELECT ATTRIBUTE1    AS PROD_CD
                    ,DISPLAY_NAME1 AS PROD_KOR_NM
                    ,DISPLAY_NAME2 AS PROD_ENG_NM
-             FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER 
+             FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
              WHERE  CODE_TYPE = 'SMR_PROD_MST'
              AND    USE_FLAG  = 'Y'
              AND    ATTRIBUTE2= 'B2B_DIV'
