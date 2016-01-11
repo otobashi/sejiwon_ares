@@ -35,8 +35,8 @@ SELECT ATTRIBUTE4
       ,'N'                 
       ,ATTRIBUTE3          
       ,'BEP_SMART_ML'      
-      ,'*'                 
-      ,'*'                 
+      ,ATTRIBUTE9          
+      ,ATTRIBUTE5          
       ,ATTRIBUTE8          
       ,'*'                 
       ,ATTRIBUTE6          
@@ -65,3 +65,13 @@ GROUP BY ATTRIBUTE4
         ,ATTRIBUTE9          
         ,ATTRIBUTE5          
 WITH UR;
+
+/*
+SQL(1)          : 62716개의 행이 Insert 되었습니다. SQL 소요시간 (3.583)
+
+
+모든 SQL 실행이 완료되었습니다.
+전체 SQL	: 1   SQL 소요시간( 3.583 )
+
+SQL 완료	: 1
+*/
