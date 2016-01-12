@@ -15,7 +15,7 @@ BEGIN
   /************************************************************************************************/
   /* 1.프 로 젝 트 : ARES                                                                         */
   /* 2.모       듈 :                                                                              */
-  /* 3.프로그램 ID : SP_CD_RES_SMR_TOT_MOST_LIKELY                                                    */
+  /* 3.프로그램 ID : SP_CD_RES_SMR_TOT_MOST_LIKELY                                                */
   /* 4.설       명 : SMART B2C/B2B 매출/영업이익 M/L 추이를 Result Set으로 return함               */
   /* 5.입 력 변 수 :                                                                              */
   /*                 IN P_BASIS_YYYYMM( 기준월 )                                                  */
@@ -26,6 +26,7 @@ BEGIN
   /*  version  작성자  일      자  내                 용                             요   청   자 */
   /*  -------  ------  ----------  ------------------------------------------------  ------------ */
   /*  1.0      shlee   2016.01.11  최초 작성                                                      */
+  /*  1.1      shlee   2016.01.12  BASE_YYYYMM 통합                                               */
   /************************************************************************************************/
     DECLARE v_etl_job_no                 VARCHAR(40)   DEFAULT 'SP_CD_RES_SMR_TOT_MOST_LIKELY';
     DECLARE v_load_start_timestamp       TIMESTAMP     DEFAULT NULL;
@@ -73,7 +74,7 @@ BEGIN
 -- 1-1.전월 Most Likely 3개월
       SELECT '전월 Most Likely'         AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM')||'-'|| TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')  AS BASE_YYYYMM
+            ,'3개월'  AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
             ,SUM(A.CURRM_USD_AMT) AS AMOUNT
             ,'0'                  AS SORT_KEY
@@ -104,7 +105,7 @@ BEGIN
       FROM (
             SELECT '전월 Most Likely'         AS COL_INDEX
                   ,A.SUBSDR_CD          AS SUBSDR_CD
-                  ,SUBSTR(P_BASIS_YYYYMM,1,4)||'01' ||'-'|| TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 2 MONTH, 'YYYYMM')        AS BASE_YYYYMM
+                  ,'누계' AS BASE_YYYYMM
                   ,A.KPI_CD             AS KPI_CD
                   ,SUM(A.CURRM_USD_AMT) AS AMOUNT
                   ,'0'                  AS SORT_KEY
@@ -127,7 +128,7 @@ BEGIN
             UNION ALL
             SELECT '전월 Most Likely'         AS COL_INDEX
                   ,A.SUBSDR_CD          AS SUBSDR_CD
-                  ,SUBSTR(P_BASIS_YYYYMM,1,4)||'01' ||'-'|| TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 2 MONTH, 'YYYYMM')        AS BASE_YYYYMM
+                  ,'누계'        AS BASE_YYYYMM
                   ,A.KPI_CD             AS KPI_CD
                   ,SUM(A.CURRM_USD_AMT) AS AMOUNT
                   ,'0'                  AS SORT_KEY
@@ -178,7 +179,7 @@ BEGIN
 -- 2-1.법인전체 3개월
       SELECT '법인전체'         AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM')||'-'|| TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')  AS BASE_YYYYMM
+            ,'3개월'  AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
             ,SUM(A.CURRM_USD_AMT) AS AMOUNT
             ,'0'                  AS SORT_KEY
@@ -201,7 +202,7 @@ BEGIN
       FROM (
             SELECT '법인전체'         AS COL_INDEX
                   ,A.SUBSDR_CD          AS SUBSDR_CD
-                  ,SUBSTR(P_BASIS_YYYYMM,1,4)||'01' ||'-'|| TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 2 MONTH, 'YYYYMM')        AS BASE_YYYYMM
+                  ,'누계'        AS BASE_YYYYMM
                   ,A.KPI_CD             AS KPI_CD
                   ,SUM(A.CURRM_USD_AMT) AS AMOUNT
                   ,'0'                  AS SORT_KEY
@@ -216,7 +217,7 @@ BEGIN
             UNION ALL
             SELECT '법인전체'         AS COL_INDEX
                   ,A.SUBSDR_CD          AS SUBSDR_CD
-                  ,SUBSTR(P_BASIS_YYYYMM,1,4)||'01' ||'-'|| TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 2 MONTH, 'YYYYMM')        AS BASE_YYYYMM
+                  ,'누계'        AS BASE_YYYYMM
                   ,A.KPI_CD             AS KPI_CD
                   ,SUM(A.CURRM_USD_AMT) AS AMOUNT
                   ,'0'                  AS SORT_KEY
@@ -238,9 +239,9 @@ BEGIN
 -- 3.전년실적
       SELECT '전년실적'         AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,CASE WHEN A.SCENARIO_TYPE_CD = 'PR1' THEN TO_CHAR(to_date(TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 12 MONTH, 'YYYYMM'), 'YYYYMM') + 1 MONTH, 'YYYYMM')
-                  WHEN A.SCENARIO_TYPE_CD = 'PR2' THEN TO_CHAR(to_date(TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 12 MONTH, 'YYYYMM'), 'YYYYMM') + 2 MONTH, 'YYYYMM')
-                  WHEN A.SCENARIO_TYPE_CD = 'PR3' THEN TO_CHAR(to_date(TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 12 MONTH, 'YYYYMM'), 'YYYYMM') + 3 MONTH, 'YYYYMM')
+            ,CASE WHEN A.SCENARIO_TYPE_CD = 'PR1' THEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM')
+                  WHEN A.SCENARIO_TYPE_CD = 'PR2' THEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 2 MONTH, 'YYYYMM')
+                  WHEN A.SCENARIO_TYPE_CD = 'PR3' THEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
              END  AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
             ,SUM(A.CURRM_USD_AMT) AS AMOUNT
@@ -258,7 +259,7 @@ BEGIN
 -- 3-1.전년실적 3개월
       SELECT '전년실적'         AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,TO_CHAR(to_date(TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 12 MONTH, 'YYYYMM'), 'YYYYMM') + 1 MONTH, 'YYYYMM')||'-'|| TO_CHAR(to_date(TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 12 MONTH, 'YYYYMM'), 'YYYYMM') + 3 MONTH, 'YYYYMM')  AS BASE_YYYYMM
+            ,'3개월'  AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
             ,SUM(A.CURRM_USD_AMT) AS AMOUNT
             ,'0'                  AS SORT_KEY
@@ -281,7 +282,7 @@ BEGIN
       FROM (
             SELECT '전년실적'         AS COL_INDEX
                   ,A.SUBSDR_CD          AS SUBSDR_CD
-                  ,SUBSTR(TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 12 MONTH, 'YYYYMM'),1,4)||'01' ||'-'|| TO_CHAR(to_date(TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 12 MONTH, 'YYYYMM'), 'YYYYMM') + 2 MONTH, 'YYYYMM')        AS BASE_YYYYMM
+                  ,'누계'  AS BASE_YYYYMM
                   ,A.KPI_CD             AS KPI_CD
                   ,SUM(A.CURRM_USD_AMT) AS AMOUNT
                   ,'0'                  AS SORT_KEY
@@ -296,7 +297,7 @@ BEGIN
             UNION ALL
             SELECT '전년실적'         AS COL_INDEX
                   ,A.SUBSDR_CD          AS SUBSDR_CD
-                  ,SUBSTR(TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 12 MONTH, 'YYYYMM'),1,4)||'01' ||'-'|| TO_CHAR(to_date(TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 12 MONTH, 'YYYYMM'), 'YYYYMM') + 2 MONTH, 'YYYYMM')        AS BASE_YYYYMM
+                  ,'누계'  AS BASE_YYYYMM
                   ,A.KPI_CD             AS KPI_CD
                   ,SUM(A.CURRM_USD_AMT) AS AMOUNT
                   ,'0'                  AS SORT_KEY
@@ -346,7 +347,7 @@ BEGIN
 -- 4-1.당월 이동 3개월
       SELECT '당월 Most Likely'         AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM')||'-'|| TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')  AS BASE_YYYYMM
+            ,'3개월'  AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
             ,SUM(A.CURRM_USD_AMT) AS AMOUNT
             ,'0'                  AS SORT_KEY
@@ -377,7 +378,7 @@ BEGIN
       FROM (
             SELECT '당월 Most Likely'         AS COL_INDEX
                   ,A.SUBSDR_CD          AS SUBSDR_CD
-                  ,SUBSTR(P_BASIS_YYYYMM,1,4)||'01' ||'-'|| TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 2 MONTH, 'YYYYMM')        AS BASE_YYYYMM
+                  ,'누계'  AS BASE_YYYYMM
                   ,A.KPI_CD             AS KPI_CD
                   ,SUM(A.CURRM_USD_AMT) AS AMOUNT
                   ,'0'                  AS SORT_KEY
@@ -400,7 +401,7 @@ BEGIN
             UNION ALL
             SELECT '당월 Most Likely'         AS COL_INDEX
                   ,A.SUBSDR_CD          AS SUBSDR_CD
-                  ,SUBSTR(P_BASIS_YYYYMM,1,4)||'01' ||'-'|| TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 2 MONTH, 'YYYYMM')        AS BASE_YYYYMM
+                  ,'누계'  AS BASE_YYYYMM
                   ,A.KPI_CD             AS KPI_CD
                   ,SUM(A.CURRM_USD_AMT) AS AMOUNT
                   ,'0'                  AS SORT_KEY
@@ -459,7 +460,7 @@ BEGIN
 -- 5-1.전월 이동 3개월
       SELECT '전월 Most Likely'         AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM')||'-'|| TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')  AS BASE_YYYYMM
+            ,'3개월'  AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
             ,SUM(A.CURRM_USD_AMT) AS AMOUNT
             ,'0'                  AS SORT_KEY
@@ -490,7 +491,7 @@ BEGIN
       FROM (
             SELECT '전월 Most Likely'         AS COL_INDEX
                   ,A.SUBSDR_CD          AS SUBSDR_CD
-                  ,SUBSTR(P_BASIS_YYYYMM,1,4)||'01' ||'-'|| TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 2 MONTH, 'YYYYMM')        AS BASE_YYYYMM
+                  ,'누계'  AS BASE_YYYYMM
                   ,A.KPI_CD             AS KPI_CD
                   ,SUM(A.CURRM_USD_AMT) AS AMOUNT
                   ,'0'                  AS SORT_KEY
@@ -513,7 +514,7 @@ BEGIN
             UNION ALL
             SELECT '전월 Most Likely'         AS COL_INDEX
                   ,A.SUBSDR_CD          AS SUBSDR_CD
-                  ,SUBSTR(P_BASIS_YYYYMM,1,4)||'01' ||'-'|| TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 2 MONTH, 'YYYYMM')        AS BASE_YYYYMM
+                  ,'누계'  AS BASE_YYYYMM
                   ,A.KPI_CD             AS KPI_CD
                   ,SUM(A.CURRM_USD_AMT) AS AMOUNT
                   ,'0'                  AS SORT_KEY
@@ -571,7 +572,7 @@ BEGIN
 -- 6-1.전전월 이동 3개월
       SELECT '전전월 Most Likely'         AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM')||'-'|| TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')  AS BASE_YYYYMM
+            ,'3개월'  AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
             ,SUM(A.CURRM_USD_AMT) AS AMOUNT
             ,'0'                  AS SORT_KEY
@@ -602,7 +603,7 @@ BEGIN
       FROM (
             SELECT '전전월 Most Likely'         AS COL_INDEX
                   ,A.SUBSDR_CD          AS SUBSDR_CD
-                  ,SUBSTR(P_BASIS_YYYYMM,1,4)||'01' ||'-'|| TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 2 MONTH, 'YYYYMM')        AS BASE_YYYYMM
+                  ,'누계'  AS BASE_YYYYMM
                   ,A.KPI_CD             AS KPI_CD
                   ,SUM(A.CURRM_USD_AMT) AS AMOUNT
                   ,'0'                  AS SORT_KEY
@@ -625,7 +626,7 @@ BEGIN
             UNION ALL
             SELECT '전전월 Most Likely'         AS COL_INDEX
                   ,A.SUBSDR_CD          AS SUBSDR_CD
-                  ,SUBSTR(P_BASIS_YYYYMM,1,4)||'01' ||'-'|| TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 2 MONTH, 'YYYYMM')        AS BASE_YYYYMM
+                  ,'누계'  AS BASE_YYYYMM
                   ,A.KPI_CD             AS KPI_CD
                   ,SUM(A.CURRM_USD_AMT) AS AMOUNT
                   ,'0'                  AS SORT_KEY
@@ -686,7 +687,7 @@ BEGIN
 -- 7-1.Most Likely 3개월
       SELECT 'Most Likely W'||A.ZONE_RNR_CD         AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM')||'-'|| TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')  AS BASE_YYYYMM
+            ,'3개월'  AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
             ,SUM(A.CURRM_USD_AMT) AS AMOUNT
             ,'0'                  AS SORT_KEY
@@ -718,7 +719,7 @@ BEGIN
       FROM (
             SELECT 'Most Likely W'||A.ZONE_RNR_CD         AS COL_INDEX
                   ,A.SUBSDR_CD          AS SUBSDR_CD
-                  ,SUBSTR(P_BASIS_YYYYMM,1,4)||'01' ||'-'|| TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 2 MONTH, 'YYYYMM')        AS BASE_YYYYMM
+                  ,'누계'  AS BASE_YYYYMM
                   ,A.KPI_CD             AS KPI_CD
                   ,SUM(A.CURRM_USD_AMT) AS AMOUNT
                   ,'0'                  AS SORT_KEY
@@ -742,7 +743,7 @@ BEGIN
             UNION ALL
             SELECT 'Most Likely W'||A.ZONE_RNR_CD         AS COL_INDEX
                   ,A.SUBSDR_CD          AS SUBSDR_CD
-                  ,SUBSTR(P_BASIS_YYYYMM,1,4)||'01' ||'-'|| TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 2 MONTH, 'YYYYMM')        AS BASE_YYYYMM
+                  ,'누계'  AS BASE_YYYYMM
                   ,A.KPI_CD             AS KPI_CD
                   ,SUM(A.CURRM_USD_AMT) AS AMOUNT
                   ,'0'                  AS SORT_KEY
@@ -804,7 +805,7 @@ BEGIN
 -- 8-1.전월 Most Likely 3개월
       SELECT '전월 Most Likely W'||A.ZONE_RNR_CD         AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM')||'-'|| TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')  AS BASE_YYYYMM
+            ,'3개월'  AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
             ,SUM(A.CURRM_USD_AMT) AS AMOUNT
             ,'0'                  AS SORT_KEY
@@ -836,7 +837,7 @@ BEGIN
       FROM (
             SELECT '전월 Most Likely W'||A.ZONE_RNR_CD         AS COL_INDEX
                   ,A.SUBSDR_CD          AS SUBSDR_CD
-                  ,SUBSTR(P_BASIS_YYYYMM,1,4)||'01' ||'-'|| TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 2 MONTH, 'YYYYMM')        AS BASE_YYYYMM
+                  ,'누계'  AS BASE_YYYYMM
                   ,A.KPI_CD             AS KPI_CD
                   ,SUM(A.CURRM_USD_AMT) AS AMOUNT
                   ,'0'                  AS SORT_KEY
@@ -860,7 +861,7 @@ BEGIN
             UNION ALL
             SELECT '전월 Most Likely W'||A.ZONE_RNR_CD         AS COL_INDEX
                   ,A.SUBSDR_CD          AS SUBSDR_CD
-                  ,SUBSTR(P_BASIS_YYYYMM,1,4)||'01' ||'-'|| TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 2 MONTH, 'YYYYMM')        AS BASE_YYYYMM
+                  ,'누계'  AS BASE_YYYYMM
                   ,A.KPI_CD             AS KPI_CD
                   ,SUM(A.CURRM_USD_AMT) AS AMOUNT
                   ,'0'                  AS SORT_KEY
