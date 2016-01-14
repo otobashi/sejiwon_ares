@@ -33,7 +33,7 @@
             FROM   tb_i24_b2b_pipeline_balance a
                  , tb_cm_week_m                w1
                  , tb_cm_week_m                w2
-                 , tb_cm_mgt_org_m             o
+                 , TB_CM_MGT_ORG_M             o
             WHERE  o.mgt_org_type_cd         (+)= 'IS'
             AND    o.curr_flag               (+)= 'Y'
             AND    o.mgt_org_eng_name        (+)= a.corporation_name

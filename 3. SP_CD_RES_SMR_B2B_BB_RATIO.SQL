@@ -83,7 +83,7 @@ BEGIN
       UNION ALL
 
 -- 2.각 사업부별
-      SELECT C.KOR_NM||'('||A.DIV_CD||')' AS COL_INDEX
+      SELECT C.DIVISION_NAME||'('||A.DIV_CD||')' AS COL_INDEX
             ,CASE WHEN A.KPI_CD = 'BB'     THEN 'BB'
                   WHEN A.KPI_CD = 'BB_W5'  THEN 'W5'
                   WHEN A.KPI_CD = 'BB_W13' THEN 'W13'
@@ -114,18 +114,13 @@ BEGIN
                      WHERE  CODE_TYPE = 'WEEK'
                      AND    TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 28 DAY,'YYYYMMDD') BETWEEN ATTRIBUTE3 AND ATTRIBUTE4
                     ) WK ) B
-            ,(SELECT CODE_ID DIV_CD
-                   ,CODE_NAME
-                   ,ATTRIBUTE1 KOR_NM
-                   ,ATTRIBUTE2 ENG_NM
-             FROM   IPTDW.IPTDW_RES_DIM_CODES
-             WHERE  CODE_TYPE = 'B2B_DIV') C
-      WHERE  A.DIV_CD = C.DIV_CD
+            ,IPTDW.IPTDW_DIM_DIVISIONS C
+      WHERE  A.DIV_CD = C.DIVISION_CODE
       AND    A.APPLY_YYYYMM BETWEEN B.START_YYYYWW AND B.END_YYYYWW
       AND    A.SCENARIO_TYPE_CD = 'AC0'
       AND    A.KPI_CD LIKE 'BB%'
       AND    A.CAT_CD = 'BEP_SMART_BB'
-      GROUP BY C.KOR_NM||'('||A.DIV_CD||')'
+      GROUP BY C.DIVISION_NAME||'('||A.DIV_CD||')'
               ,CASE WHEN A.KPI_CD = 'BB'     THEN 'BB'
                   WHEN A.KPI_CD = 'BB_W5'  THEN 'W5'
                   WHEN A.KPI_CD = 'BB_W13' THEN 'W13'

@@ -41,7 +41,7 @@ BEGIN
     DECLARE C1 CURSOR WITH HOLD WITH RETURN FOR
 
 -- 1. DIVISIONÀüÃ¼
-      SELECT C.KOR_NM AS COL_INDEX
+      SELECT C.DIVISION_NAME AS COL_INDEX
             ,CASE WHEN E.SEQ = 1 THEN 'ALL'
                   WHEN E.SEQ = 2 THEN D.DISP_KOR_NM END        AS NATION_NM
             ,CASE WHEN A.KPI_CD = 'BB'     THEN 'BB'
@@ -74,12 +74,7 @@ BEGIN
                      WHERE  CODE_TYPE = 'WEEK'
                      AND    TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 28 DAY,'YYYYMMDD') BETWEEN ATTRIBUTE3 AND ATTRIBUTE4
                     ) WK ) B
-            ,(SELECT CODE_ID DIV_CD
-                   ,CODE_NAME
-                   ,ATTRIBUTE1 KOR_NM
-                   ,ATTRIBUTE2 ENG_NM
-             FROM   IPTDW.IPTDW_RES_DIM_CODES
-             WHERE  CODE_TYPE = 'B2B_DIV') C
+            ,IPTDW.IPTDW_DIM_DIVISIONS C
             ,(SELECT CORPORATION_CODE AS CORP_CD
                     ,DISPLAY_NAME1 AS DISP_ENG_NM
                     ,DISPLAY_NAME2 AS DISP_KOR_NM
@@ -88,14 +83,14 @@ BEGIN
               WHERE  CODE_TYPE = 'SMART_CORP_NATION') D
             ,(SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
               SELECT 2 AS SEQ FROM SYSIBM.SYSDUMMY1) E
-      WHERE  A.DIV_CD    = C.DIV_CD
+      WHERE  A.DIV_CD    = C.DIVISION_CODE
       AND    A.SUBSDR_CD = D.CORP_CD
       AND    A.DIV_CD    = P_DIV_CD
       AND    A.APPLY_YYYYMM BETWEEN B.START_YYYYWW AND B.END_YYYYWW
       AND    A.SCENARIO_TYPE_CD = 'AC0'
       AND    A.KPI_CD    LIKE 'BB%'
       AND    A.CAT_CD    = 'BEP_SMART_BB'
-      GROUP BY C.KOR_NM
+      GROUP BY C.DIVISION_NAME
               ,CASE WHEN E.SEQ = 1 THEN 'ALL'
                     WHEN E.SEQ = 2 THEN D.DISP_KOR_NM END
               ,CASE WHEN A.KPI_CD = 'BB'     THEN 'BB'
