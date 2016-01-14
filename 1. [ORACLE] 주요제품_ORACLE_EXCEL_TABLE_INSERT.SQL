@@ -240,7 +240,7 @@ FROM   NPT_APP.NV_DWW_CONSLD_BEP_SUMM_S  A11
        LEFT OUTER JOIN  V_PROD_M  A113                                                                             
        ON   A16.UP_PROD_CD   = A113.PROD_CD                                                                        
        AND  A113.PROD_LVL_CD = '1'                                                                                 
-WHERE  A11.ACCTG_YYYYMM = '201508' -- &IV_YYYYMM                                                                   
+WHERE  A11.ACCTG_YYYYMM = '201508' -- &IV_YYYYMM    요부분변경                                                               
 AND    A11.SCENARIO_TYPE_CD      = 'AC0'                                                                           
 AND    A11.CONSLD_SALES_MDL_FLAG = 'Y'                                                                             
 AND    A11.CURRM_ACCUM_TYPE_CD   = 'CURRM'                                                                         

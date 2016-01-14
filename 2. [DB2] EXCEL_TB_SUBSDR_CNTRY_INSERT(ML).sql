@@ -63,7 +63,47 @@ GROUP BY ATTRIBUTE4
         ,ATTRIBUTE3          
         ,ATTRIBUTE6          
         ,ATTRIBUTE9          
-        ,ATTRIBUTE5          
+        ,ATTRIBUTE5 
+UNION ALL
+-- 이동계획추가
+SELECT ATTRIBUTE6          
+      ,'MP'          
+      ,ATTRIBUTE2          
+      ,ATTRIBUTE8          
+      ,'*'                 
+      ,'N'                 
+      ,ATTRIBUTE3          
+      ,'BEP_SMART_ML'      
+      ,ATTRIBUTE9          
+      ,ATTRIBUTE5          
+      ,ATTRIBUTE8          
+      ,'*'                 
+      ,ATTRIBUTE6          
+      ,SUM(TO_NUMBER(ATTRIBUTE10))    
+      ,SUM(TO_NUMBER(ATTRIBUTE11))    
+--      ,null                
+--      ,null                
+      ,ATTRIBUTE9          
+      ,ATTRIBUTE5          
+--      ,null                
+--      ,null                
+--      ,null                
+      ,CURRENT TIMESTAMP   
+      ,'ares'              
+      ,CURRENT TIMESTAMP   
+      ,'ares'              
+FROM   IPTDW.IPTDW_RES_EXCEL_UPLOAD_DATA
+WHERE  SEQ = '1520'
+AND    ATTRIBUTE7 = 'PR1'
+AND    CODE_ID = 'BEP_SMART_ML'
+GROUP BY ATTRIBUTE4          
+        ,ATTRIBUTE7          
+        ,ATTRIBUTE2          
+        ,ATTRIBUTE8          
+        ,ATTRIBUTE3          
+        ,ATTRIBUTE6          
+        ,ATTRIBUTE9          
+        ,ATTRIBUTE5                 
 WITH UR;
 
 /*
