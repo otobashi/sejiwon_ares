@@ -68,9 +68,7 @@ BEGIN
       GROUP BY A.SUBSDR_CD
               ,A.APPLY_YYYYMM
               ,A.KPI_CD
-              
       UNION ALL
-      
 -- 1-1.전월 Most Likely 3개월
       SELECT '전월 Most Likely'         AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
@@ -94,10 +92,7 @@ BEGIN
       AND    A.DIV_CD = B.DIV_CD
       GROUP BY A.SUBSDR_CD
               ,A.KPI_CD
-
-
       UNION ALL
-
 -- 1-2.전월 Most Likely 01~현재월
       SELECT Z.COL_INDEX
             ,Z.SUBSDR_CD
@@ -159,7 +154,6 @@ BEGIN
               ,Z.BASE_YYYYMM
               ,Z.KPI_CD
 
-
       UNION ALL
 -- 2.법인전체
       SELECT '법인전체'         AS COL_INDEX
@@ -177,9 +171,7 @@ BEGIN
       GROUP BY A.SUBSDR_CD
               ,A.APPLY_YYYYMM
               ,A.KPI_CD
-
       UNION ALL
-
 -- 2-1.법인전체 3개월
       SELECT '법인전체'         AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
@@ -195,9 +187,7 @@ BEGIN
       AND    A.SUBSDR_CD = P_SUBSDR_CD
       GROUP BY A.SUBSDR_CD
               ,A.KPI_CD
-
       UNION ALL
-
 -- 2-2.법인전체 01~현재월
       SELECT Z.COL_INDEX
             ,Z.SUBSDR_CD
@@ -243,45 +233,39 @@ BEGIN
               ,Z.BASE_YYYYMM
               ,Z.KPI_CD
 
+
       UNION ALL
 -- 3.전월 이동
-      SELECT Z.COL_INDEX AS COL_INDEX
-            ,Z.SUBSDR_CD AS SUBSDR_CD
-            ,Z.BASE_YYYYMM AS BASE_YYYYMM
-            ,Z.KPI_CD AS KPI_CD
-            ,SUM(Z.AMOUNT) AS AMOUNT
-            ,Z.SORT_KEY
-      FROM (      
-            SELECT '전월 이동'         AS COL_INDEX
-                  ,A.SUBSDR_CD         AS SUBSDR_CD
-                  ,CASE WHEN A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM') THEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM')
-                        WHEN A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 0 MONTH, 'YYYYMM') THEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 2 MONTH, 'YYYYMM')
-                        WHEN A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') THEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
-                   END  AS BASE_YYYYMM
-                  ,A.KPI_CD             AS KPI_CD
-                  ,A.CURRM_USD_AMT      AS AMOUNT
-                  ,'0'                  AS SORT_KEY
-            FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-                 ,(SELECT CODE_ID DIV_CD
-                         ,CODE_NAME
-                         ,ATTRIBUTE1 KOR_NM
-                         ,ATTRIBUTE2 ENG_NM
-                   FROM   IPTDW.IPTDW_RES_DIM_CODES
-                   WHERE  CODE_TYPE = P_CODE_TYPE
-                  ) B
-            WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM')
-            AND    A.SCENARIO_TYPE_CD = 'MP'
-            AND    A.CAT_CD = 'BEP_SMART_DIV'
-            AND    A.KPI_CD in ('SALE', 'COI')
-            AND    A.SUBSDR_CD = P_SUBSDR_CD
-            AND    A.DIV_CD = B.DIV_CD
-           ) Z
-      GROUP BY Z.COL_INDEX
-              ,Z.SUBSDR_CD
-              ,Z.BASE_YYYYMM
-              ,Z.KPI_CD
-              ,Z.SORT_KEY
-              
+      SELECT '전월 이동'         AS COL_INDEX
+            ,A.SUBSDR_CD         AS SUBSDR_CD
+            ,CASE WHEN A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM') THEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM')
+                  WHEN A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 0 MONTH, 'YYYYMM') THEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 2 MONTH, 'YYYYMM')
+                  WHEN A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') THEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
+             END  AS BASE_YYYYMM
+            ,A.KPI_CD             AS KPI_CD
+            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+            ,'0'                  AS SORT_KEY
+      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+           ,(SELECT CODE_ID DIV_CD
+                   ,CODE_NAME
+                   ,ATTRIBUTE1 KOR_NM
+                   ,ATTRIBUTE2 ENG_NM
+             FROM   IPTDW.IPTDW_RES_DIM_CODES
+             WHERE  CODE_TYPE = P_CODE_TYPE
+            ) B
+      WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM')
+      AND    A.SCENARIO_TYPE_CD = 'MP'
+      AND    A.CAT_CD = 'BEP_SMART_DIV'
+      AND    A.KPI_CD in ('SALE', 'COI')
+      AND    A.SUBSDR_CD = P_SUBSDR_CD
+      AND    A.DIV_CD = B.DIV_CD
+      GROUP BY A.SUBSDR_CD
+              ,CASE WHEN A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM') THEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM')
+                    WHEN A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 0 MONTH, 'YYYYMM') THEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 2 MONTH, 'YYYYMM')
+                    WHEN A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') THEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
+               END
+              ,A.KPI_CD
+
       UNION ALL
 
 -- 3-1.전월 이동 3개월
@@ -373,71 +357,55 @@ BEGIN
       UNION ALL
 
 -- 4.전전월 이동
-      SELECT Z.COL_INDEX
-            ,Z.SUBSDR_CD
-            ,Z.BASE_YYYYMM
-            ,Z.KPI_CD
-            ,SUM(Z.AMOUNT)
-            ,Z.SORT_KEY
-      FROM  (
-            SELECT '전전월 이동'        AS COL_INDEX
-                  ,A.SUBSDR_CD          AS SUBSDR_CD
-                  ,CASE WHEN A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 2 MONTH, 'YYYYMM') THEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 0 MONTH, 'YYYYMM')
-                        WHEN A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM') THEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM')
-                        WHEN A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 0 MONTH, 'YYYYMM') THEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 2 MONTH, 'YYYYMM')
-                   END  AS BASE_YYYYMM
-                  ,A.KPI_CD             AS KPI_CD
-                  ,A.CURRM_USD_AMT      AS AMOUNT
-                  ,'0'                  AS SORT_KEY
-            FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-                 ,(SELECT CODE_ID DIV_CD
-                         ,CODE_NAME
-                         ,ATTRIBUTE1 KOR_NM
-                         ,ATTRIBUTE2 ENG_NM
-                   FROM   IPTDW.IPTDW_RES_DIM_CODES
-                   WHERE  CODE_TYPE = P_CODE_TYPE
-                  ) B
-            WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 2 MONTH, 'YYYYMM') AND P_BASIS_YYYYMM
-            AND    A.SCENARIO_TYPE_CD = 'MP'
-            AND    A.CAT_CD = 'BEP_SMART_DIV'
-            AND    A.KPI_CD in ('SALE', 'COI')
-            AND    A.SUBSDR_CD = P_SUBSDR_CD
-            AND    A.DIV_CD = B.DIV_CD
-            ) Z
-      GROUP BY Z.COL_INDEX
-              ,Z.SUBSDR_CD
-              ,Z.BASE_YYYYMM
-              ,Z.KPI_CD
-              ,Z.SORT_KEY
-
+      SELECT '전전월 이동'         AS COL_INDEX
+            ,A.SUBSDR_CD          AS SUBSDR_CD
+            ,CASE WHEN A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 2 MONTH, 'YYYYMM') THEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 0 MONTH, 'YYYYMM')
+                  WHEN A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM') THEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM')
+                  WHEN A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 0 MONTH, 'YYYYMM') THEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 2 MONTH, 'YYYYMM')
+             END  AS BASE_YYYYMM
+            ,A.KPI_CD             AS KPI_CD
+            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+            ,'0'                  AS SORT_KEY
+      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+           ,(SELECT CODE_ID DIV_CD
+                   ,CODE_NAME
+                   ,ATTRIBUTE1 KOR_NM
+                   ,ATTRIBUTE2 ENG_NM
+             FROM   IPTDW.IPTDW_RES_DIM_CODES
+             WHERE  CODE_TYPE = P_CODE_TYPE
+            ) B
+      WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 2 MONTH, 'YYYYMM') AND P_BASIS_YYYYMM
+      AND    A.SCENARIO_TYPE_CD = 'MP'
+      AND    A.CAT_CD = 'BEP_SMART_DIV'
+      AND    A.KPI_CD in ('SALE', 'COI')
+      AND    A.SUBSDR_CD = P_SUBSDR_CD
+      AND    A.DIV_CD = B.DIV_CD
+      GROUP BY A.SUBSDR_CD
+              ,CASE WHEN A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 2 MONTH, 'YYYYMM') THEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 0 MONTH, 'YYYYMM')
+                    WHEN A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM') THEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM')
+                    WHEN A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 0 MONTH, 'YYYYMM') THEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 2 MONTH, 'YYYYMM')
+               END
+              ,A.KPI_CD
+             
       UNION ALL
 
 -- 5.전년실적
-      SELECT Z.COL_INDEX
-            ,Z.SUBSDR_CD
-            ,Z.BASE_YYYYMM
-            ,Z.KPI_CD
-            ,SUM(Z.AMOUNT)
-            ,Z.SORT_KEY
-      FROM (
-            SELECT '전년실적'           AS COL_INDEX
-                  ,A.SUBSDR_CD          AS SUBSDR_CD
-                  ,TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 YEAR, 'YYYY')||SUBSTR(A.APPLY_YYYYMM,5,2)  AS BASE_YYYYMM
-                  ,A.KPI_CD             AS KPI_CD
-                  ,A.CURRM_USD_AMT      AS AMOUNT
-                  ,'0'                  AS SORT_KEY
-            FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-            WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 11 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 9 MONTH, 'YYYYMM')
-            AND    A.SCENARIO_TYPE_CD = 'AC0'
-            AND    A.CAT_CD = 'BEP_SMART_DIV'
-            AND    A.KPI_CD in ('SALE', 'COI')
-            AND    A.SUBSDR_CD = P_SUBSDR_CD
-            ) Z
-      GROUP BY Z.COL_INDEX
-            ,Z.SUBSDR_CD
-            ,Z.BASE_YYYYMM
-            ,Z.KPI_CD
-            ,Z.SORT_KEY            
+      SELECT '전년실적'         AS COL_INDEX
+            ,A.SUBSDR_CD          AS SUBSDR_CD
+            ,TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 YEAR, 'YYYY')||SUBSTR(A.APPLY_YYYYMM,5,2)  AS BASE_YYYYMM
+            ,A.KPI_CD             AS KPI_CD
+            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+            ,'0'                  AS SORT_KEY
+      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+      WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 11 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 9 MONTH, 'YYYYMM')
+      AND    A.SCENARIO_TYPE_CD = 'AC0'
+      AND    A.CAT_CD = 'BEP_SMART_DIV'
+      AND    A.KPI_CD in ('SALE', 'COI')
+      AND    A.SUBSDR_CD = P_SUBSDR_CD
+      GROUP BY A.SUBSDR_CD
+              ,TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 YEAR, 'YYYY')||SUBSTR(A.APPLY_YYYYMM,5,2)
+              ,A.KPI_CD
+
 
       UNION ALL
 -- 5-1.전년실적 3개월
@@ -455,7 +423,6 @@ BEGIN
       AND    A.SUBSDR_CD = P_SUBSDR_CD
       GROUP BY A.SUBSDR_CD
               ,A.KPI_CD
-
       UNION ALL
 -- 5-2.전년실적 01~현재월
       SELECT Z.COL_INDEX
