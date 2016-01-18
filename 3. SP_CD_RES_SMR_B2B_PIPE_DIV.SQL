@@ -1,6 +1,6 @@
 CREATE OR REPLACE PROCEDURE ETL_IDW.SP_CD_RES_SMR_B2B_PIPE_DIV (
      IN P_BASIS_YYYYMM VARCHAR(6),
-     IN P_DIV_CD       VARCHAR(8)
+     IN P_DIV_NM       VARCHAR(50)
      )
   DYNAMIC RESULT SETS 1
   LANGUAGE SQL
@@ -18,12 +18,13 @@ BEGIN
   /* 4.설       명 : SMART 월별Trend(파이프라인)을 DIVISION 국가별 Result Set으로 return함        */
   /* 5.입 력 변 수 :                                                                              */
   /*                 IN P_BASIS_YYYYMM( 기준월 )                                                  */
-  /*                 IN P_DIV_CD( DIVISION CODE )                                                 */
+  /*                 IN P_DIV_NM( DIVISION NAME )                                                 */
   /* 6.파 일 위 치 :                                                                              */
   /* 7.변 경 이 력 :                                                                              */
   /*  version  작성자  일      자  내                 용                             요   청   자 */
   /*  -------  ------  ----------  ------------------------------------------------  ------------ */
   /*  1.0      shlee   2016.01.12  최초 작성                                                      */
+  /*  1.1      shlee   2016.01.12  최초 작성                                                      */
   /************************************************************************************************/
     DECLARE v_etl_job_no                 VARCHAR(40)   DEFAULT 'SP_CD_RES_SMR_B2B_PIPE_DIV';
     DECLARE v_load_start_timestamp       TIMESTAMP     DEFAULT NULL;
@@ -50,15 +51,19 @@ BEGIN
                   ELSE A.KPI_CD END            AS KPI_CD
             ,A.BASE_YYYYMM        AS BASE_YYYYMM
             ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+            ,MIN(C.DISP_SEQ) AS DISP_SEQ
+            ,MIN(C.ENG_NM) AS COL_INDEX_ENG
       FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
             ,(SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
               SELECT 2 AS SEQ FROM SYSIBM.SYSDUMMY1) B
-            ,(SELECT CODE_ID DIV_CD
-                   ,CODE_NAME
-                   ,ATTRIBUTE1 KOR_NM
-                   ,ATTRIBUTE2 ENG_NM
-             FROM   IPTDW.IPTDW_RES_DIM_CODES
-             WHERE  CODE_TYPE = 'B2B_DIV') C
+            ,(SELECT DIVISION_CODE AS DIV_CD
+                    ,DISPLAY_NAME1 AS KOR_NM
+                    ,DISPLAY_NAME2 AS ENG_NM
+                    ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+              FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+              WHERE  CODE_TYPE = 'PIPELINE'
+              AND    USE_FLAG = 'Y'
+              AND    DISPLAY_NAME1 = P_DIV_NM ) C
             ,(SELECT CORPORATION_CODE AS CORP_CD
                     ,DISPLAY_NAME1 AS DISP_ENG_NM
                     ,DISPLAY_NAME2 AS DISP_KOR_NM
@@ -67,7 +72,6 @@ BEGIN
               WHERE  CODE_TYPE = 'SMART_CORP_NATION') D
       WHERE  A.DIV_CD = C.DIV_CD
       AND    A.SUBSDR_CD = D.CORP_CD
-      AND    A.DIV_CD = P_DIV_CD
       AND    A.BASE_YYYYMM BETWEEN TO_CHAR(to_date( P_BASIS_YYYYMM, 'YYYYMM') - 24 MONTH, 'YYYYMM') AND P_BASIS_YYYYMM
       AND    A.SCENARIO_TYPE_CD = 'AC0'
       AND    A.KPI_CD IN ('BLSN','SALE_PRJ','SALE')

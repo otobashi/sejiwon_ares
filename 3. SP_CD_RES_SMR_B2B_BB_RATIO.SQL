@@ -22,6 +22,7 @@ BEGIN
   /*  version  작성자  일      자  내                 용                             요   청   자 */
   /*  -------  ------  ----------  ------------------------------------------------  ------------ */
   /*  1.0      shlee   2016.01.14  최초 작성                                                      */
+  /*  1.1      shlee   2016.01.15  IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER로 정리                 */
   /************************************************************************************************/
     DECLARE v_etl_job_no                 VARCHAR(40)   DEFAULT 'SP_CD_RES_SMR_B2B_BB_RATIO';
     DECLARE v_load_start_timestamp       TIMESTAMP     DEFAULT NULL;
@@ -49,6 +50,8 @@ BEGIN
                       WHEN A.KPI_CD = 'BB_W5'  THEN A.ACCU_USD_AMT
                       WHEN A.KPI_CD = 'BB_W13' THEN A.ACCU_USD_AMT
                       WHEN A.KPI_CD = 'BB_W52' THEN A.ACCU_USD_AMT END) AS AMOUNT
+            ,0 AS DISP_SEQ
+            ,'CORP TOTAL'           AS COL_INDEX_ENG
       FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
             ,(SELECT MAX(WK.YYYYMM1) AS START_YYYYMM
                     ,MAX(WK.YYYYWW1) AS START_YYYYWW
@@ -83,7 +86,7 @@ BEGIN
       UNION ALL
 
 -- 2.각 사업부별
-      SELECT C.DIVISION_NAME||'('||A.DIV_CD||')' AS COL_INDEX
+      SELECT C.KOR_NM AS COL_INDEX
             ,CASE WHEN A.KPI_CD = 'BB'     THEN 'BB'
                   WHEN A.KPI_CD = 'BB_W5'  THEN 'W5'
                   WHEN A.KPI_CD = 'BB_W13' THEN 'W13'
@@ -93,6 +96,8 @@ BEGIN
                       WHEN A.KPI_CD = 'BB_W5'  THEN A.ACCU_USD_AMT
                       WHEN A.KPI_CD = 'BB_W13' THEN A.ACCU_USD_AMT
                       WHEN A.KPI_CD = 'BB_W52' THEN A.ACCU_USD_AMT END) AS AMOUNT
+            ,MIN(C.DISP_SEQ) AS DISP_SEQ
+            ,MIN(C.ENG_NM) AS COL_INDEX_ENG
       FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
             ,(SELECT MAX(WK.YYYYMM1) AS START_YYYYMM
                     ,MAX(WK.YYYYWW1) AS START_YYYYWW
@@ -114,20 +119,27 @@ BEGIN
                      WHERE  CODE_TYPE = 'WEEK'
                      AND    TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 28 DAY,'YYYYMMDD') BETWEEN ATTRIBUTE3 AND ATTRIBUTE4
                     ) WK ) B
-            ,IPTDW.IPTDW_DIM_DIVISIONS C
-      WHERE  A.DIV_CD = C.DIVISION_CODE
+            ,(SELECT DIVISION_CODE AS DIV_CD
+                    ,DISPLAY_NAME1 AS KOR_NM
+                    ,DISPLAY_NAME2 AS ENG_NM
+                    ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+              FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+              WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+              AND    USE_FLAG = 'Y') C
+      WHERE  A.DIV_CD = C.DIV_CD
       AND    A.APPLY_YYYYMM BETWEEN B.START_YYYYWW AND B.END_YYYYWW
       AND    A.SCENARIO_TYPE_CD = 'AC0'
       AND    A.KPI_CD LIKE 'BB%'
       AND    A.CAT_CD = 'BEP_SMART_BB'
-      GROUP BY C.DIVISION_NAME||'('||A.DIV_CD||')'
+      GROUP BY C.KOR_NM
               ,CASE WHEN A.KPI_CD = 'BB'     THEN 'BB'
                   WHEN A.KPI_CD = 'BB_W5'  THEN 'W5'
                   WHEN A.KPI_CD = 'BB_W13' THEN 'W13'
                   WHEN A.KPI_CD = 'BB_W52' THEN 'W52' END
               ,A.APPLY_YYYYMM
+--      ORDER BY 6
       WITH UR;
-      
+    
     OPEN C1;
    /* LOG 변수 RESET */
     SET v_load_start_timestamp       = CURRENT TIMESTAMP;

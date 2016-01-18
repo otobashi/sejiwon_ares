@@ -30,13 +30,13 @@ INSERT INTO IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY
 SELECT A.ATTRIBUTE1
       ,A.ATTRIBUTE14
       ,A.ATTRIBUTE2
-      ,A.ATTRIBUTE11
+      ,A.ATTRIBUTE8
       ,'*'
       ,'N'
       ,B.KPI_CD
       ,'BEP_SMART_PROD'
-      ,'*'
-      ,'*'
+      ,NVL(A.ATTRIBUTE21,'*')
+      ,NVL(A.ATTRIBUTE25,'*')
       ,A.ATTRIBUTE8
       ,'*'
       ,A.ATTRIBUTE1
@@ -60,20 +60,32 @@ FROM   IPTDW.IPTDW_RES_EXCEL_UPLOAD_DATA A
        SELECT 'COI'  AS KPI_CD FROM   SYSIBM.SYSDUMMY1
        ) B
 WHERE  A.SEQ = '1510'
+AND    A.CODE_ID = 'BEP_SMART_PROD'
 GROUP BY A.ATTRIBUTE1
         ,A.ATTRIBUTE14
         ,A.ATTRIBUTE2
-        ,A.ATTRIBUTE11
+        ,A.ATTRIBUTE8
         ,B.KPI_CD
+      ,NVL(A.ATTRIBUTE21,'*')
+      ,NVL(A.ATTRIBUTE25,'*')
         ,A.ATTRIBUTE8      
 WITH UR;
 
 /*
-SQL(1)          : 108644개의 행이 Insert 되었습니다. SQL 소요시간 (7.713)
+SQL(1)          : 261312개의 행이 Delete 되었습니다. SQL 소요시간 (1.058)
 
 
 모든 SQL 실행이 완료되었습니다.
-전체 SQL	: 1   SQL 소요시간( 7.713 )
+전체 SQL	: 1   SQL 소요시간( 1.058 )
 
 SQL 완료	: 1
+
+SQL(1)          : 686692개의 행이 Insert 되었습니다. SQL 소요시간 (25.827)
+
+
+모든 SQL 실행이 완료되었습니다.
+전체 SQL	: 1   SQL 소요시간( 25.827 )
+
+SQL 완료	: 1
+
 */

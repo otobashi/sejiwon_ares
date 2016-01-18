@@ -1,6 +1,6 @@
 CREATE OR REPLACE PROCEDURE ETL_IDW.SP_CD_RES_SMR_B2B_BB_DIV (
      IN P_BASIS_YYYYMMDD VARCHAR(8),
-     IN P_DIV_CD         VARCHAR(8)
+     IN P_DIV_NM         VARCHAR(50)
      )
   DYNAMIC RESULT SETS 1
   LANGUAGE SQL
@@ -18,12 +18,13 @@ BEGIN
   /* 4.설       명 : SMART 주차별Trend(BB RATIO)을 DIVISION 국가별 Result Set으로 return함        */
   /* 5.입 력 변 수 :                                                                              */
   /*                 IN P_BASIS_YYYYMMDD( 기준일 )                                                */
-  /*                 IN P_DIV_CD( DIVISION CODE )                                                 */
+  /*                 IN P_DIV_NM( DIVISION NAME )                                                 */
   /* 6.파 일 위 치 :                                                                              */
   /* 7.변 경 이 력 :                                                                              */
   /*  version  작성자  일      자  내                 용                             요   청   자 */
   /*  -------  ------  ----------  ------------------------------------------------  ------------ */
   /*  1.0      shlee   2016.01.14  최초 작성                                                      */
+  /*  1.1      shlee   2016.01.15  IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER로 정리                 */
   /************************************************************************************************/
     DECLARE v_etl_job_no                 VARCHAR(40)   DEFAULT 'SP_CD_RES_SMR_B2B_BB_DIV';
     DECLARE v_load_start_timestamp       TIMESTAMP     DEFAULT NULL;
@@ -41,7 +42,7 @@ BEGIN
     DECLARE C1 CURSOR WITH HOLD WITH RETURN FOR
 
 -- 1. DIVISION전체
-      SELECT C.DIVISION_NAME AS COL_INDEX
+      SELECT C.KOR_NM AS COL_INDEX
             ,CASE WHEN E.SEQ = 1 THEN 'ALL'
                   WHEN E.SEQ = 2 THEN D.DISP_KOR_NM END        AS NATION_NM
             ,CASE WHEN A.KPI_CD = 'BB'     THEN 'BB'
@@ -53,6 +54,8 @@ BEGIN
                       WHEN A.KPI_CD = 'BB_W5'  THEN A.ACCU_USD_AMT
                       WHEN A.KPI_CD = 'BB_W13' THEN A.ACCU_USD_AMT
                       WHEN A.KPI_CD = 'BB_W52' THEN A.ACCU_USD_AMT END) AS AMOUNT
+            ,MIN(C.DISP_SEQ) AS DISP_SEQ
+            ,MIN(C.ENG_NM) AS COL_INDEX_ENG
       FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
             ,(SELECT MAX(WK.YYYYMM1) AS START_YYYYMM
                     ,MAX(WK.YYYYWW1) AS START_YYYYWW
@@ -74,7 +77,14 @@ BEGIN
                      WHERE  CODE_TYPE = 'WEEK'
                      AND    TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 28 DAY,'YYYYMMDD') BETWEEN ATTRIBUTE3 AND ATTRIBUTE4
                     ) WK ) B
-            ,IPTDW.IPTDW_DIM_DIVISIONS C
+            ,(SELECT DIVISION_CODE AS DIV_CD
+                    ,DISPLAY_NAME1 AS KOR_NM
+                    ,DISPLAY_NAME2 AS ENG_NM
+                    ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+              FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+              WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+              AND    USE_FLAG = 'Y'
+              AND    DISPLAY_NAME1 = P_DIV_NM ) C
             ,(SELECT CORPORATION_CODE AS CORP_CD
                     ,DISPLAY_NAME1 AS DISP_ENG_NM
                     ,DISPLAY_NAME2 AS DISP_KOR_NM
@@ -83,14 +93,13 @@ BEGIN
               WHERE  CODE_TYPE = 'SMART_CORP_NATION') D
             ,(SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
               SELECT 2 AS SEQ FROM SYSIBM.SYSDUMMY1) E
-      WHERE  A.DIV_CD    = C.DIVISION_CODE
+      WHERE  A.DIV_CD    = C.DIV_CD
       AND    A.SUBSDR_CD = D.CORP_CD
-      AND    A.DIV_CD    = P_DIV_CD
       AND    A.APPLY_YYYYMM BETWEEN B.START_YYYYWW AND B.END_YYYYWW
       AND    A.SCENARIO_TYPE_CD = 'AC0'
       AND    A.KPI_CD    LIKE 'BB%'
       AND    A.CAT_CD    = 'BEP_SMART_BB'
-      GROUP BY C.DIVISION_NAME
+      GROUP BY C.KOR_NM
               ,CASE WHEN E.SEQ = 1 THEN 'ALL'
                     WHEN E.SEQ = 2 THEN D.DISP_KOR_NM END
               ,CASE WHEN A.KPI_CD = 'BB'     THEN 'BB'

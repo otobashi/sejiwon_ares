@@ -22,6 +22,7 @@ BEGIN
   /*  version  작성자  일      자  내                 용                             요   청   자 */
   /*  -------  ------  ----------  ------------------------------------------------  ------------ */
   /*  1.0      shlee   2016.01.12  최초 작성                                                      */
+  /*  1.1      shlee   2016.01.15  IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER로 정리                 */
   /************************************************************************************************/
     DECLARE v_etl_job_no                 VARCHAR(40)   DEFAULT 'SP_CD_RES_SMR_B2B_PIPELINE';
     DECLARE v_load_start_timestamp       TIMESTAMP     DEFAULT NULL;
@@ -47,6 +48,8 @@ BEGIN
             ,CASE WHEN B.SEQ = 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
                   WHEN B.SEQ = 2 THEN A.BASE_YYYYMM END        AS BASE_YYYYMM
             ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+            ,0 AS DISP_SEQ
+            ,'CORP TOTAL'         AS COL_INDEX_ENG
       FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
             ,(SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
               SELECT 2 AS SEQ FROM SYSIBM.SYSDUMMY1) B
@@ -72,15 +75,18 @@ BEGIN
             ,CASE WHEN B.SEQ = 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
                   WHEN B.SEQ = 2 THEN A.BASE_YYYYMM END        AS BASE_YYYYMM
             ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+            ,MIN(C.DISP_SEQ) AS DISP_SEQ
+            ,MIN(C.ENG_NM) AS COL_INDEX_ENG
       FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
             ,(SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
               SELECT 2 AS SEQ FROM SYSIBM.SYSDUMMY1) B
-            ,(SELECT CODE_ID DIV_CD
-                   ,CODE_NAME
-                   ,ATTRIBUTE1 KOR_NM
-                   ,ATTRIBUTE2 ENG_NM
-             FROM   IPTDW.IPTDW_RES_DIM_CODES
-             WHERE  CODE_TYPE = 'B2B_DIV') C
+            ,(SELECT DIVISION_CODE AS DIV_CD
+                    ,DISPLAY_NAME1 AS KOR_NM
+                    ,DISPLAY_NAME2 AS ENG_NM
+                    ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+              FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+              WHERE  CODE_TYPE = 'PIPELINE'
+              AND    USE_FLAG = 'Y' ) C
       WHERE  A.DIV_CD = C.DIV_CD
       AND    A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 24 MONTH, 'YYYYMM') AND P_BASIS_YYYYMM
       AND    A.SCENARIO_TYPE_CD = 'AC0'
@@ -93,7 +99,6 @@ BEGIN
                     ELSE A.KPI_CD END
               ,CASE WHEN B.SEQ = 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
                     WHEN B.SEQ = 2 THEN A.BASE_YYYYMM END
-
     WITH UR;
 
     OPEN C1;

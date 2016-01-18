@@ -83,11 +83,12 @@ GROUP BY ATTRIBUTE9
 WITH UR;
 
 /*
-SQL(1)          : 27488개의 행이 Insert 되었습니다. SQL 소요시간 (3.703)
+SQL(1)          : 32228개의 행이 Insert 되었습니다. SQL 소요시간 (1.149)
 
 
 모든 SQL 실행이 완료되었습니다.
-전체 SQL	: 1   SQL 소요시간( 3.703 )
+전체 SQL	: 1   SQL 소요시간( 1.149 )
 
 SQL 완료	: 1
+
 */
