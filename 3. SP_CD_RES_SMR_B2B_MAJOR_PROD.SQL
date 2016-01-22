@@ -33,6 +33,7 @@ BEGIN
   /*  1.0      shlee   2016.01.07  최초 작성                                                      */
   /*  1.1      shlee   2016.01.08  법인전체/사업부 카테고리 코드변경                              */
   /*                               - BEP_SMART_PROD -> BEP_SMART_DIV                              */
+  /*  1.1      shlee   2016.01.22  사업부추가                                                     */
   /************************************************************************************************/
     DECLARE v_etl_job_no                 VARCHAR(40)   DEFAULT 'SP_CD_RES_SMR_B2B_MAJOR_PROD';
     DECLARE v_load_start_timestamp       TIMESTAMP     DEFAULT NULL;
@@ -80,24 +81,57 @@ BEGIN
                    ,CASE WHEN DIVISION_CODE = 'GLT' THEN 'HE ID'
                          WHEN DIVISION_CODE = 'DCT' THEN 'H&A System A/C'
                          WHEN DIVISION_CODE = 'SDT' THEN '에너지 Solar'
+                         WHEN DIVISION_CODE = 'GJT' THEN '모니터 사이니지'
+                         WHEN DIVISION_CODE = 'DMT' THEN 'CAC'
+                         WHEN DIVISION_CODE = 'CLT' THEN 'Lighting'
+                         WHEN DIVISION_CODE = 'DBT' THEN 'Chiller'
                          ELSE DISPLAY_NAME END AS DISP_NM
              FROM   IPTDW.IPTDW_RES_DIM_COMM_DIVISION
              WHERE  USE_FLAG = 'Y'
              AND    BASIS_YYYYMM = '201601'
-             AND    DIVISION_CODE IN ('GLT','DCT','SDT')
+             AND    DIVISION_CODE IN ('GLT','DCT','SDT','GJT','DMT','CLT','DBT')
             ) B
       WHERE A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 2 YEAR, 'YYYY')||'01' AND P_BASIS_YYYYMM
       AND   A.SCENARIO_TYPE_CD = 'AC0'
       AND   A.CAT_CD = 'BEP_SMART_DIV'
       AND   A.KPI_CD in ('SALE', 'COI')
       AND   A.SUBSDR_CD = P_SUBSDR_CD
-      AND   A.DIV_CD IN ('GLT','DCT','SDT')
+      --AND   A.DIV_CD IN ('GLT','DCT','SDT')
       AND   A.DIV_CD = B.DIV_CD
       GROUP BY B.DISP_NM
               ,A.SUBSDR_CD
               ,A.BASE_YYYYMM
               ,A.KPI_CD
 
+/*
+      UNION ALL
+-- 3 LEVEL1
+      SELECT B.PROD_KOR_NM        AS COL_INDEX
+            ,A.SUBSDR_CD          AS SUBSDR_CD
+            ,A.BASE_YYYYMM        AS BASE_YYYYMM
+            ,A.KPI_CD             AS KPI_CD
+            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+            ,'1'                  AS SORT_KEY
+      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+           ,(SELECT ATTRIBUTE1    AS PROD_CD
+                   ,DISPLAY_NAME1 AS PROD_KOR_NM
+                   ,DISPLAY_NAME2 AS PROD_ENG_NM
+             FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+             WHERE  CODE_TYPE = 'SMR_PROD_MST'
+             AND    USE_FLAG  = 'Y'
+             AND    ATTRIBUTE2= 'B2B_DIV'
+            ) B
+      WHERE A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 2 YEAR, 'YYYY')||'01' AND P_BASIS_YYYYMM
+      AND   A.SCENARIO_TYPE_CD = 'AC0'
+      AND   A.CAT_CD = 'BEP_SMART_PROD'
+      AND   A.KPI_CD in ('SALE', 'COI')
+      AND   A.SUBSDR_CD = P_SUBSDR_CD
+      AND   A.ATTRIBUTE2_VALUE = B.PROD_CD
+      GROUP BY B.PROD_KOR_NM
+              ,A.SUBSDR_CD
+              ,A.BASE_YYYYMM
+              ,A.KPI_CD
+*/
       UNION ALL
 
 -- 3 LEVEL2

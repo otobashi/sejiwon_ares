@@ -1,6 +1,7 @@
 CREATE OR REPLACE PROCEDURE ETL_IDW.SP_CD_RES_SMR_B2B_PIPE_DIV (
      IN P_BASIS_YYYYMM VARCHAR(6),
-     IN P_DIV_NM       VARCHAR(50)
+     IN P_DIV_NM       VARCHAR(50),
+     IN P_SUBSDR_CD    VARCHAR(8)     
      )
   DYNAMIC RESULT SETS 1
   LANGUAGE SQL
@@ -19,12 +20,14 @@ BEGIN
   /* 5.입 력 변 수 :                                                                              */
   /*                 IN P_BASIS_YYYYMM( 기준월 )                                                  */
   /*                 IN P_DIV_NM( DIVISION NAME )                                                 */
+  /*                 IN P_SUBSDR_CD( 법인코드 )                                                   */
   /* 6.파 일 위 치 :                                                                              */
   /* 7.변 경 이 력 :                                                                              */
   /*  version  작성자  일      자  내                 용                             요   청   자 */
   /*  -------  ------  ----------  ------------------------------------------------  ------------ */
   /*  1.0      shlee   2016.01.12  최초 작성                                                      */
   /*  1.1      shlee   2016.01.12  최초 작성                                                      */
+  /*  1.2      shlee   2016.01.19  SUBSDR_CD 구분추가                                             */
   /************************************************************************************************/
     DECLARE v_etl_job_no                 VARCHAR(40)   DEFAULT 'SP_CD_RES_SMR_B2B_PIPE_DIV';
     DECLARE v_load_start_timestamp       TIMESTAMP     DEFAULT NULL;
@@ -71,6 +74,7 @@ BEGIN
               FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
               WHERE  CODE_TYPE = 'SMART_CORP_NATION') D
       WHERE  A.DIV_CD = C.DIV_CD
+      AND    A.SUBSDR_CD = P_SUBSDR_CD
       AND    A.SUBSDR_CD = D.CORP_CD
       AND    A.BASE_YYYYMM BETWEEN TO_CHAR(to_date( P_BASIS_YYYYMM, 'YYYYMM') - 24 MONTH, 'YYYYMM') AND P_BASIS_YYYYMM
       AND    A.SCENARIO_TYPE_CD = 'AC0'

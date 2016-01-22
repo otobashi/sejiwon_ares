@@ -1,5 +1,6 @@
 CREATE OR REPLACE PROCEDURE ETL_IDW.SP_CD_RES_SMR_B2B_BB_RATIO (
-     IN P_BASIS_YYYYMMDD VARCHAR(8)
+     IN P_BASIS_YYYYMMDD VARCHAR(8),
+     IN P_SUBSDR_CD      VARCHAR(8)
      )
   DYNAMIC RESULT SETS 1
   LANGUAGE SQL
@@ -17,12 +18,15 @@ BEGIN
   /* 4.설       명 : SMART 주차별Trend(BB RATIO)을 Result Set으로 return함                        */
   /* 5.입 력 변 수 :                                                                              */
   /*                 IN P_BASIS_YYYYMMDD( 기준일 )                                                */
+  /*                 IN P_SUBSDR_CD( 법인코드 )                                                   */
   /* 6.파 일 위 치 :                                                                              */
   /* 7.변 경 이 력 :                                                                              */
   /*  version  작성자  일      자  내                 용                             요   청   자 */
   /*  -------  ------  ----------  ------------------------------------------------  ------------ */
   /*  1.0      shlee   2016.01.14  최초 작성                                                      */
   /*  1.1      shlee   2016.01.15  IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER로 정리                 */
+  /*  1.2      shlee   2016.01.19  SUBSDR_CD 구분추가                                             */
+  /*  1.3      shlee   2016.01.22  CURRM_USD_AMT 로 변경                                          */
   /************************************************************************************************/
     DECLARE v_etl_job_no                 VARCHAR(40)   DEFAULT 'SP_CD_RES_SMR_B2B_BB_RATIO';
     DECLARE v_load_start_timestamp       TIMESTAMP     DEFAULT NULL;
@@ -47,9 +51,9 @@ BEGIN
                   WHEN A.KPI_CD = 'BB_W52' THEN 'W52' END      AS KPI_CD
             ,A.APPLY_YYYYMM       AS YYYYWW
             ,SUM(CASE WHEN A.KPI_CD = 'BB'     THEN A.CURRM_USD_AMT
-                      WHEN A.KPI_CD = 'BB_W5'  THEN A.ACCU_USD_AMT
-                      WHEN A.KPI_CD = 'BB_W13' THEN A.ACCU_USD_AMT
-                      WHEN A.KPI_CD = 'BB_W52' THEN A.ACCU_USD_AMT END) AS AMOUNT
+                      WHEN A.KPI_CD = 'BB_W5'  THEN A.CURRM_USD_AMT
+                      WHEN A.KPI_CD = 'BB_W13' THEN A.CURRM_USD_AMT
+                      WHEN A.KPI_CD = 'BB_W52' THEN A.CURRM_USD_AMT END) AS AMOUNT
             ,0 AS DISP_SEQ
             ,'CORP TOTAL'           AS COL_INDEX_ENG
       FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
@@ -74,6 +78,7 @@ BEGIN
                      AND    TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 28 DAY,'YYYYMMDD') BETWEEN ATTRIBUTE3 AND ATTRIBUTE4
                     ) WK ) B
       WHERE  A.APPLY_YYYYMM BETWEEN B.START_YYYYWW AND B.END_YYYYWW
+      AND    A.SUBSDR_CD = P_SUBSDR_CD
       AND    A.SCENARIO_TYPE_CD = 'AC0'
       AND    A.KPI_CD LIKE 'BB%'
       AND    A.CAT_CD = 'BEP_SMART_BB'
@@ -93,9 +98,9 @@ BEGIN
                   WHEN A.KPI_CD = 'BB_W52' THEN 'W52' END      AS KPI_CD
             ,A.APPLY_YYYYMM       AS YYYYWW
             ,SUM(CASE WHEN A.KPI_CD = 'BB'     THEN A.CURRM_USD_AMT
-                      WHEN A.KPI_CD = 'BB_W5'  THEN A.ACCU_USD_AMT
-                      WHEN A.KPI_CD = 'BB_W13' THEN A.ACCU_USD_AMT
-                      WHEN A.KPI_CD = 'BB_W52' THEN A.ACCU_USD_AMT END) AS AMOUNT
+                      WHEN A.KPI_CD = 'BB_W5'  THEN A.CURRM_USD_AMT
+                      WHEN A.KPI_CD = 'BB_W13' THEN A.CURRM_USD_AMT
+                      WHEN A.KPI_CD = 'BB_W52' THEN A.CURRM_USD_AMT END) AS AMOUNT
             ,MIN(C.DISP_SEQ) AS DISP_SEQ
             ,MIN(C.ENG_NM) AS COL_INDEX_ENG
       FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
@@ -127,6 +132,7 @@ BEGIN
               WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
               AND    USE_FLAG = 'Y') C
       WHERE  A.DIV_CD = C.DIV_CD
+      AND    A.SUBSDR_CD = P_SUBSDR_CD
       AND    A.APPLY_YYYYMM BETWEEN B.START_YYYYWW AND B.END_YYYYWW
       AND    A.SCENARIO_TYPE_CD = 'AC0'
       AND    A.KPI_CD LIKE 'BB%'

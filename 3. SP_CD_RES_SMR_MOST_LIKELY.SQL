@@ -28,6 +28,7 @@ BEGIN
   /*  1.0      shlee   2016.01.11  최초 작성                                                      */
   /*  1.1      shlee   2016.01.12  BASE_YYYYMM 통합                                               */
   /*  1.2      shlee   2016.01.18  직전3개월평균추가 및 정리                                      */
+  /*  1.3      shlee   2016.01.19  전월ML 및 이동계획 법인전체 추가                               */
   /************************************************************************************************/
     DECLARE v_etl_job_no                 VARCHAR(40)   DEFAULT 'SP_CD_RES_SMR_TOT_MOST_LIKELY';
     DECLARE v_load_start_timestamp       TIMESTAMP     DEFAULT NULL;
@@ -159,7 +160,7 @@ BEGIN
               ,Z.BASE_YYYYMM
               ,Z.KPI_CD
 
-
+/*
       UNION ALL
 -- 2.법인전체
       SELECT '법인전체'         AS COL_INDEX
@@ -242,7 +243,91 @@ BEGIN
               ,Z.SUBSDR_CD
               ,Z.BASE_YYYYMM
               ,Z.KPI_CD
+*/
+      UNION ALL
+-- 2.전월 Most Likely 법인전체
+      SELECT '전월 Most Likely 법인전체'         AS COL_INDEX
+            ,A.SUBSDR_CD          AS SUBSDR_CD
+            ,A.APPLY_YYYYMM       AS BASE_YYYYMM
+            ,A.KPI_CD             AS KPI_CD
+            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+            ,'0'                  AS SORT_KEY
+      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+      WHERE  A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM')
+      AND    A.SCENARIO_TYPE_CD IN ('PR2','PR3','PR4')
+      AND    A.CAT_CD = 'BEP_SMART_DIV'
+      AND    A.KPI_CD in ('SALE', 'COI')
+      AND    A.SUBSDR_CD = P_SUBSDR_CD
+      GROUP BY A.SUBSDR_CD
+              ,A.APPLY_YYYYMM
+              ,A.KPI_CD
+              
+      UNION ALL
+      
+-- 2-1.전월 Most Likely 3개월
+      SELECT '전월 Most Likely 법인전체'         AS COL_INDEX
+            ,A.SUBSDR_CD          AS SUBSDR_CD
+            ,'3개월'  AS BASE_YYYYMM
+            ,A.KPI_CD             AS KPI_CD
+            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+            ,'0'                  AS SORT_KEY
+      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+      WHERE  A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM')
+      AND    A.SCENARIO_TYPE_CD IN ('PR2','PR3','PR4')
+      AND    A.CAT_CD = 'BEP_SMART_DIV'
+      AND    A.KPI_CD in ('SALE', 'COI')
+      AND    A.SUBSDR_CD = P_SUBSDR_CD
+      GROUP BY A.SUBSDR_CD
+              ,A.KPI_CD
 
+
+      UNION ALL
+
+-- 2-2.전월 Most Likely 01~현재월
+      SELECT Z.COL_INDEX
+            ,Z.SUBSDR_CD
+            ,Z.BASE_YYYYMM
+            ,Z.KPI_CD
+            ,SUM(Z.AMOUNT) AS AMOUNT
+            ,MIN(Z.SORT_KEY) AS SORT_KE
+      FROM (
+            SELECT '전월 Most Likely 법인전체'         AS COL_INDEX
+                  ,A.SUBSDR_CD          AS SUBSDR_CD
+                  ,'누계' AS BASE_YYYYMM
+                  ,A.KPI_CD             AS KPI_CD
+                  ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+                  ,'0'                  AS SORT_KEY
+            FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+            WHERE  A.BASE_YYYYMM BETWEEN SUBSTR(P_BASIS_YYYYMM,1,4)||'01' AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM')
+            AND    A.BASE_YYYYMM <= SUBSTR(TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 0 MONTH, 'YYYYMM'),1,4)||'12'
+            AND    A.SCENARIO_TYPE_CD = 'AC0'
+            AND    A.CAT_CD = 'BEP_SMART_DIV'
+            AND    A.KPI_CD in ('SALE', 'COI')
+            AND    A.SUBSDR_CD = P_SUBSDR_CD
+            GROUP BY A.SUBSDR_CD
+                    ,A.KPI_CD
+            UNION ALL
+            SELECT '전월 Most Likely 법인전체'         AS COL_INDEX
+                  ,A.SUBSDR_CD          AS SUBSDR_CD
+                  ,'누계'        AS BASE_YYYYMM
+                  ,A.KPI_CD             AS KPI_CD
+                  ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+                  ,'0'                  AS SORT_KEY
+            FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+            WHERE  A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM')
+            AND    A.APPLY_YYYYMM <= SUBSTR(TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 0 MONTH, 'YYYYMM'),1,4)||'12'
+            AND    A.SCENARIO_TYPE_CD IN ('PR2','PR3','PR4')
+            AND    A.CAT_CD = 'BEP_SMART_DIV'
+            AND    A.KPI_CD in ('SALE', 'COI')
+            AND    A.SUBSDR_CD = P_SUBSDR_CD
+            GROUP BY A.SUBSDR_CD
+                    ,A.KPI_CD
+            ) Z
+      GROUP BY Z.COL_INDEX
+              ,Z.SUBSDR_CD
+              ,Z.BASE_YYYYMM
+              ,Z.KPI_CD
+      
       UNION ALL
 -- 3.전월 이동
       SELECT Z.COL_INDEX AS COL_INDEX
@@ -598,16 +683,97 @@ BEGIN
               ,Z.BASE_YYYYMM
               ,Z.KPI_CD
 
+              
+      UNION ALL
+
+-- *.당월 이동 법인전체
+      SELECT '당월 이동 법인전체'          AS COL_INDEX
+            ,A.SUBSDR_CD          AS SUBSDR_CD
+            ,A.BASE_YYYYMM        AS BASE_YYYYMM
+            ,A.KPI_CD             AS KPI_CD
+            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+            ,'0'                  AS SORT_KEY
+      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+      WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
+      AND    A.SCENARIO_TYPE_CD = 'MP'
+      AND    A.CAT_CD = 'BEP_SMART_DIV'
+      AND    A.KPI_CD in ('SALE', 'COI')
+      AND    A.SUBSDR_CD = P_SUBSDR_CD
+      GROUP BY A.SUBSDR_CD
+              ,A.BASE_YYYYMM
+              ,A.KPI_CD
+      UNION ALL
+-- *-1.당월 이동 3개월
+      SELECT '당월 이동 법인전체'          AS COL_INDEX
+            ,A.SUBSDR_CD          AS SUBSDR_CD
+            ,'3개월'  AS BASE_YYYYMM
+            ,A.KPI_CD             AS KPI_CD
+            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+            ,'0'                  AS SORT_KEY
+      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+      WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
+      AND    A.SCENARIO_TYPE_CD = 'MP'
+      AND    A.CAT_CD = 'BEP_SMART_DIV'
+      AND    A.KPI_CD in ('SALE', 'COI')
+      AND    A.SUBSDR_CD = P_SUBSDR_CD
+      GROUP BY A.SUBSDR_CD
+              ,A.KPI_CD
+      UNION ALL
+-- *-2.당월 이동 01~현재월
+      SELECT Z.COL_INDEX
+            ,Z.SUBSDR_CD
+            ,Z.BASE_YYYYMM
+            ,Z.KPI_CD
+            ,SUM(Z.AMOUNT) AS AMOUNT
+            ,MIN(Z.SORT_KEY) AS SORT_KE
+      FROM (
+            SELECT '당월 이동 법인전체'          AS COL_INDEX
+                  ,A.SUBSDR_CD          AS SUBSDR_CD
+                  ,'누계'  AS BASE_YYYYMM
+                  ,A.KPI_CD             AS KPI_CD
+                  ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+                  ,'0'                  AS SORT_KEY
+            FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+            WHERE  A.BASE_YYYYMM BETWEEN SUBSTR(P_BASIS_YYYYMM,1,4)||'01' AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 0 MONTH, 'YYYYMM')
+            AND    A.BASE_YYYYMM <= TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 YEAR, 'YYYY')||'12'
+            AND    A.SCENARIO_TYPE_CD = 'AC0'
+            AND    A.CAT_CD = 'BEP_SMART_DIV'
+            AND    A.KPI_CD in ('SALE', 'COI')
+            AND    A.SUBSDR_CD = P_SUBSDR_CD
+            GROUP BY A.SUBSDR_CD
+                    ,A.KPI_CD
+            UNION ALL
+            SELECT '당월 이동'          AS COL_INDEX
+                  ,A.SUBSDR_CD          AS SUBSDR_CD
+                  ,'누계'  AS BASE_YYYYMM
+                  ,A.KPI_CD             AS KPI_CD
+                  ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+                  ,'0'                  AS SORT_KEY
+            FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+            WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
+            AND    A.BASE_YYYYMM <= TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 YEAR, 'YYYY')||'12'
+            AND    A.SCENARIO_TYPE_CD = 'MP'
+            AND    A.CAT_CD = 'BEP_SMART_DIV'
+            AND    A.KPI_CD in ('SALE', 'COI')
+            AND    A.SUBSDR_CD = P_SUBSDR_CD
+            GROUP BY A.SUBSDR_CD
+                    ,A.KPI_CD
+            ) Z
+      GROUP BY Z.COL_INDEX
+              ,Z.SUBSDR_CD
+              ,Z.BASE_YYYYMM
+              ,Z.KPI_CD
+
       UNION ALL
 
 
 -- 7.Most Likely
-      SELECT 'Most Likely W'||A.ZONE_RNR_CD         AS COL_INDEX
+      SELECT 'Most Likely '||C.SEQ         AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
             ,A.APPLY_YYYYMM       AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
             ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-            ,'0'                  AS SORT_KEY
+            ,C.THU                AS SORT_KEY
       FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
            ,(SELECT CODE_ID DIV_CD
                    ,CODE_NAME
@@ -616,24 +782,34 @@ BEGIN
              FROM   IPTDW.IPTDW_RES_DIM_CODES
              WHERE  CODE_TYPE = P_CODE_TYPE
             ) B
+           ,(
+             SELECT ATTRIBUTE1 AS WEEK_NO
+                   ,SUBSTR(DESCRIPTION,5,2)||'/'||SUBSTR(DESCRIPTION,7,2) AS THU
+                   ,ROWNUMBER() OVER() AS SEQ
+             FROM   IPTDW.IPTDW_RES_DIM_CODES
+             WHERE  CODE_TYPE = 'SMART_WEEK'
+             AND    ATTRIBUTE2 = P_BASIS_YYYYMM
+            ) C
       WHERE  A.BASE_YYYYMM = P_BASIS_YYYYMM
       AND    A.SCENARIO_TYPE_CD IN ('PR1','PR2','PR3')
       AND    A.CAT_CD = 'BEP_SMART_ML'
       AND    A.KPI_CD in ('SALE', 'COI')
       AND    A.SUBSDR_CD = P_SUBSDR_CD
       AND    A.DIV_CD = B.DIV_CD
-      GROUP BY A.ZONE_RNR_CD
+      AND    A.ZONE_RNR_CD = C.WEEK_NO
+      GROUP BY C.SEQ
               ,A.SUBSDR_CD
               ,A.APPLY_YYYYMM
               ,A.KPI_CD
+              ,C.THU
       UNION ALL
 -- 7-1.Most Likely 3개월
-      SELECT 'Most Likely W'||A.ZONE_RNR_CD         AS COL_INDEX
+      SELECT 'Most Likely '||C.SEQ         AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
             ,'3개월'              AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
             ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-            ,'0'                  AS SORT_KEY
+            ,C.THU                  AS SORT_KEY
       FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
            ,(SELECT CODE_ID DIV_CD
                    ,CODE_NAME
@@ -642,15 +818,25 @@ BEGIN
              FROM   IPTDW.IPTDW_RES_DIM_CODES
              WHERE  CODE_TYPE = P_CODE_TYPE
             ) B
+           ,(
+             SELECT ATTRIBUTE1 AS WEEK_NO
+                   ,SUBSTR(DESCRIPTION,5,2)||'/'||SUBSTR(DESCRIPTION,7,2) AS THU
+                   ,ROWNUMBER() OVER() AS SEQ
+             FROM   IPTDW.IPTDW_RES_DIM_CODES
+             WHERE  CODE_TYPE = 'SMART_WEEK'
+             AND    ATTRIBUTE2 = P_BASIS_YYYYMM
+            ) C
       WHERE  A.BASE_YYYYMM = P_BASIS_YYYYMM
       AND    A.SCENARIO_TYPE_CD IN ('PR1','PR2','PR3')
       AND    A.CAT_CD = 'BEP_SMART_ML'
       AND    A.KPI_CD in ('SALE', 'COI')
       AND    A.SUBSDR_CD = P_SUBSDR_CD
       AND    A.DIV_CD = B.DIV_CD
-      GROUP BY A.ZONE_RNR_CD
+      AND    A.ZONE_RNR_CD = C.WEEK_NO
+      GROUP BY C.SEQ
               ,A.SUBSDR_CD
               ,A.KPI_CD
+              ,C.THU
       UNION ALL
 -- 7-2.Most Likely 01~현재월
       SELECT Z.COL_INDEX
@@ -660,12 +846,12 @@ BEGIN
             ,SUM(Z.AMOUNT) AS AMOUNT
             ,MIN(Z.SORT_KEY) AS SORT_KE
       FROM (
-            SELECT 'Most Likely W'||C.WEEK_NM         AS COL_INDEX
+            SELECT 'Most Likely '||C.SEQ         AS COL_INDEX
                   ,A.SUBSDR_CD          AS SUBSDR_CD
                   ,'누계'               AS BASE_YYYYMM
                   ,A.KPI_CD             AS KPI_CD
                   ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-                  ,'0'                  AS SORT_KEY
+                  ,C.THU                AS SORT_KEY
             FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
                  ,(SELECT CODE_ID DIV_CD
                          ,CODE_NAME
@@ -674,11 +860,14 @@ BEGIN
                    FROM   IPTDW.IPTDW_RES_DIM_CODES
                    WHERE  CODE_TYPE = P_CODE_TYPE
                   ) B
-                 ,(SELECT '1' WEEK_NM FROM SYSIBM.SYSDUMMY1 UNION ALL
-                   SELECT '2' WEEK_NM FROM SYSIBM.SYSDUMMY1 UNION ALL
-                   SELECT '3' WEEK_NM FROM SYSIBM.SYSDUMMY1 UNION ALL
-                   SELECT '4' WEEK_NM FROM SYSIBM.SYSDUMMY1 UNION ALL
-                   SELECT '5' WEEK_NM FROM SYSIBM.SYSDUMMY1 ) C
+                 ,(
+                   SELECT ATTRIBUTE1 AS WEEK_NO
+                         ,SUBSTR(DESCRIPTION,5,2)||'/'||SUBSTR(DESCRIPTION,7,2) AS THU
+                         ,ROWNUMBER() OVER() AS SEQ
+                   FROM   IPTDW.IPTDW_RES_DIM_CODES
+                   WHERE  CODE_TYPE = 'SMART_WEEK'
+                   AND    ATTRIBUTE2 = P_BASIS_YYYYMM
+                  ) C
             WHERE  A.BASE_YYYYMM BETWEEN SUBSTR(P_BASIS_YYYYMM,1,4)||'01' AND P_BASIS_YYYYMM
             AND    A.BASE_YYYYMM <= TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 YEAR, 'YYYY')||'12'
             AND    A.SCENARIO_TYPE_CD = 'AC0'
@@ -686,16 +875,17 @@ BEGIN
             AND    A.KPI_CD in ('SALE', 'COI')
             AND    A.SUBSDR_CD = P_SUBSDR_CD
             AND    A.DIV_CD = B.DIV_CD
-            GROUP BY 'Most Likely W'||C.WEEK_NM
+            GROUP BY C.SEQ
                     ,A.SUBSDR_CD
                     ,A.KPI_CD
+                    ,C.THU
             UNION ALL
-            SELECT 'Most Likely W'||A.ZONE_RNR_CD         AS COL_INDEX
+            SELECT 'Most Likely '||C.SEQ         AS COL_INDEX
                   ,A.SUBSDR_CD          AS SUBSDR_CD
                   ,'누계'  AS BASE_YYYYMM
                   ,A.KPI_CD             AS KPI_CD
                   ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-                  ,'0'                  AS SORT_KEY
+                  ,C.THU                AS SORT_KEY
             FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
                  ,(SELECT CODE_ID DIV_CD
                          ,CODE_NAME
@@ -704,6 +894,14 @@ BEGIN
                    FROM   IPTDW.IPTDW_RES_DIM_CODES
                    WHERE  CODE_TYPE = P_CODE_TYPE
                   ) B
+                 ,(
+                   SELECT ATTRIBUTE1 AS WEEK_NO
+                         ,SUBSTR(DESCRIPTION,5,2)||'/'||SUBSTR(DESCRIPTION,7,2) AS THU
+                         ,ROWNUMBER() OVER() AS SEQ
+                   FROM   IPTDW.IPTDW_RES_DIM_CODES
+                   WHERE  CODE_TYPE = 'SMART_WEEK'
+                   AND    ATTRIBUTE2 = P_BASIS_YYYYMM
+                  ) C
             WHERE  A.BASE_YYYYMM = P_BASIS_YYYYMM
             AND    A.APPLY_YYYYMM <= TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 YEAR, 'YYYY')||'12'
             AND    A.SCENARIO_TYPE_CD IN ('PR1','PR2','PR3')
@@ -711,9 +909,11 @@ BEGIN
             AND    A.KPI_CD in ('SALE', 'COI')
             AND    A.SUBSDR_CD = P_SUBSDR_CD
             AND    A.DIV_CD = B.DIV_CD
-            GROUP BY A.ZONE_RNR_CD
+            AND    A.ZONE_RNR_CD = C.WEEK_NO
+            GROUP BY C.SEQ
                     ,A.SUBSDR_CD
                     ,A.KPI_CD
+                    ,C.THU
             ) Z
       GROUP BY Z.COL_INDEX
               ,Z.SUBSDR_CD
