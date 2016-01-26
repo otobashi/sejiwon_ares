@@ -1,0 +1,33 @@
+
+-- 8.재고일수/역산법/장기재고
+      SELECT CASE A.KPI_CD
+                    WHEN 'INV_DIO' THEN '재고일수'
+                    WHEN 'INV_DIO_R' THEN '역산법'
+                    WHEN 'INV_LONG_TERM' THEN '장기재고' END         AS COL_INDEX
+            ,A.SUBSDR_CD          AS SUBSDR_CD
+            ,CASE B.SEQ 
+                  WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
+                  WHEN 2 THEN A.BASE_YYYYMM END AS BASE_YYYYMM
+            ,A.KPI_CD             AS KPI_CD
+            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+            ,'0'                  AS SORT_KEY
+      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+            ,(
+              SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
+              SELECT 2 FROM SYSIBM.SYSDUMMY1
+             ) B
+      WHERE  A.BASE_YYYYMM BETWEEN '201301' AND '201510'
+      AND    A.SCENARIO_TYPE_CD = 'AC0'
+      AND    A.CAT_CD = 'SMART_INV'
+      AND    A.KPI_CD IN ('INV_DIO', 'INV_DIO_R', 'INV_LONG_TERM')
+      AND    A.SUBSDR_CD = 'EEUK'
+      AND    A.DIV_CD = 'GLT'
+      GROUP BY CASE A.KPI_CD
+                    WHEN 'INV_DIO' THEN '재고일수'
+                    WHEN 'INV_DIO_R' THEN '역산법'
+                    WHEN 'INV_LONG_TERM' THEN '장기재고' END
+              ,A.SUBSDR_CD
+              ,CASE B.SEQ 
+                    WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
+                    WHEN 2 THEN A.BASE_YYYYMM END
+              ,A.KPI_CD

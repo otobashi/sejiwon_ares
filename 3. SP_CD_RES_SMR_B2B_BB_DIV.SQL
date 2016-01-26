@@ -1,6 +1,6 @@
 CREATE OR REPLACE PROCEDURE ETL_IDW.SP_CD_RES_SMR_B2B_BB_DIV (
      IN P_BASIS_YYYYMMDD VARCHAR(8),
-     IN P_DIV_NM         VARCHAR(50),
+     IN P_DIV_CD         VARCHAR(8),
      IN P_SUBSDR_CD      VARCHAR(8)   
      )
   DYNAMIC RESULT SETS 1
@@ -19,7 +19,7 @@ BEGIN
   /* 4.설       명 : SMART 주차별Trend(BB RATIO)을 DIVISION 국가별 Result Set으로 return함        */
   /* 5.입 력 변 수 :                                                                              */
   /*                 IN P_BASIS_YYYYMMDD( 기준일 )                                                */
-  /*                 IN P_DIV_NM( DIVISION NAME )                                                 */
+  /*                 IN P_DIV_CD( DIVISION CODE )                                                 */
   /*                 IN P_SUBSDR_CD( 법인코드 )                                                   */
   /* 6.파 일 위 치 :                                                                              */
   /* 7.변 경 이 력 :                                                                              */
@@ -88,13 +88,16 @@ BEGIN
               FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
               WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
               AND    USE_FLAG = 'Y'
-              AND    DISPLAY_NAME1 = P_DIV_NM ) C
-            ,(SELECT CORPORATION_CODE AS CORP_CD
-                    ,DISPLAY_NAME1 AS DISP_ENG_NM
-                    ,DISPLAY_NAME2 AS DISP_KOR_NM
-                    ,DISPLAY_ORDER_SEQ AS DISP_SEQ 
-              FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-              WHERE  CODE_TYPE = 'SMART_CORP_NATION') D
+              AND    DIVISION_CODE = P_DIV_CD ) C
+            ,(SELECT A.CORPORATION_CODE AS CORP_CD
+                    ,B.DISPLAY_NAME2 AS DISP_ENG_NM
+                    ,B.DISPLAY_NAME1 AS DISP_KOR_NM
+                    ,A.DISPLAY_ORDER_SEQ AS DISP_SEQ     
+              FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER A
+                    ,IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER B
+              WHERE  A.CODE_TYPE = 'SMART_CORP_NATION'        
+              AND    B.CODE_TYPE = 'SMART_CNTRY_NAME'
+              AND    A.DIVISION_CODE = B.DIVISION_CODE) D
             ,(SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
               SELECT 2 AS SEQ FROM SYSIBM.SYSDUMMY1) E
       WHERE  A.DIV_CD    = C.DIV_CD

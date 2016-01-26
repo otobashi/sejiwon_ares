@@ -1,4 +1,4 @@
-CREATE OR REPLACE PROCEDURE ETL_IDW.SP_CD_RES_SMR_MGN_PROFIT (
+CREATE OR REPLACE PROCEDURE ETL_IDW.SP_CD_RES_SMR_MONTH_SALE (
      IN P_BASIS_YYYYMM VARCHAR(6),
      IN P_SUBSDR_CD    VARCHAR(8),
      IN P_DIV_CD       VARCHAR(8)
@@ -15,8 +15,8 @@ BEGIN
   /************************************************************************************************/
   /* 1.프 로 젝 트 : ARES                                                                         */
   /* 2.모       듈 :                                                                              */
-  /* 3.프로그램 ID : SP_CD_RES_SMR_MGN_PROFIT                                                     */
-  /* 4.설       명 : 유첨. 제품별 경영 실적 - DIVISION                                            */
+  /* 3.프로그램 ID : SP_CD_RES_SMR_MONTH_SALE                                                     */
+  /* 4.설       명 : 유첨. 제품별 경영 실적 - 1.월별실적                                          */
   /* 5.입 력 변 수 :                                                                              */
   /*                 IN P_BASIS_YYYYMM( 기준월 )                                                  */
   /*                 IN P_SUBSDR_CD( 법인 )                                                       */
@@ -25,9 +25,9 @@ BEGIN
   /* 7.변 경 이 력 :                                                                              */
   /*  version  작성자  일      자  내                 용                             요   청   자 */
   /*  -------  ------  ----------  ------------------------------------------------  ------------ */
-  /*  1.0      shlee   2016.01.20  최초 작성                                                      */
+  /*  1.0      shlee   2016.01.25  최초 작성                                                      */
   /************************************************************************************************/
-    DECLARE v_etl_job_no                 VARCHAR(40)   DEFAULT 'SP_CD_RES_SMR_MGN_PROFIT';
+    DECLARE v_etl_job_no                 VARCHAR(40)   DEFAULT 'SP_CD_RES_SMR_MONTH_SALE';
     DECLARE v_load_start_timestamp       TIMESTAMP     DEFAULT NULL;
     DECLARE v_serial_no                  VARCHAR(30)   DEFAULT NULL;
     DECLARE v_load_progress_status_code  VARCHAR(10)   DEFAULT NULL;
@@ -42,10 +42,11 @@ BEGIN
 
     DECLARE C1 CURSOR WITH HOLD WITH RETURN FOR
 
--- 1.매출/영업이익
+-- 1.매출/영업이익/가격성판촉비
       SELECT CASE A.KPI_CD
                   WHEN 'SALE' THEN '매출'
-                  WHEN 'COI'  THEN '영업이익' END         AS COL_INDEX
+                  WHEN 'COI'  THEN '영업이익'
+                  WHEN 'SALES_DEDUCTION' THEN '가격성판촉비' END         AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
             ,CASE B.SEQ 
                   WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
@@ -61,12 +62,13 @@ BEGIN
       WHERE  A.BASE_YYYYMM BETWEEN '201301' AND P_BASIS_YYYYMM
       AND    A.SCENARIO_TYPE_CD = 'AC0'
       AND    A.CAT_CD = 'BEP_SMART_DIV'
-      AND    A.KPI_CD in ('SALE', 'COI')
+      AND    A.KPI_CD in ('SALE', 'COI','SALES_DEDUCTION')
       AND    A.SUBSDR_CD = P_SUBSDR_CD
       AND    A.DIV_CD = P_DIV_CD
       GROUP BY CASE A.KPI_CD
                     WHEN 'SALE' THEN '매출'
-                    WHEN 'COI'  THEN '영업이익' END
+                    WHEN 'COI'  THEN '영업이익'
+                    WHEN 'SALES_DEDUCTION' THEN '가격성판촉비' END
               ,A.SUBSDR_CD
               ,CASE B.SEQ 
                     WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
@@ -74,11 +76,30 @@ BEGIN
               ,A.KPI_CD
 
       UNION ALL
-      
--- 2. 저수익 모델매출 / 저수익구간
-      SELECT CASE C.SEQ
-                  WHEN 1 THEN '저수익모델매출'
-                  WHEN 2 THEN '저수익구간'||D.SUB_CAT_NM END AS COL_INDEX
+
+-- 2.MostLikely대비(W-1)
+      SELECT 'MostLikely대비(W-1)'         AS COL_INDEX
+            ,A.SUBSDR_CD   AS SUBSDR_CD
+            ,A.BASE_YYYYMM AS BASE_YYYYMM
+            ,A.KPI_CD             AS KPI_CD
+            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+            ,'0'                  AS SORT_KEY
+      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+      WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(P_BASIS_YYYYMM, 'YYYYMM'), -2), 'YYYYMM') AND P_BASIS_YYYYMM
+      AND    A.SCENARIO_TYPE_CD = 'PR0'
+      AND    A.ZONE_RNR_CD = '1'
+      AND    A.CAT_CD = 'BEP_SMART_ML'
+      AND    A.KPI_CD in ('SALE')
+      AND    A.SUBSDR_CD = P_SUBSDR_CD
+      AND    A.DIV_CD = P_DIV_CD
+      GROUP BY A.SUBSDR_CD
+              ,A.BASE_YYYYMM
+              ,A.KPI_CD
+
+      UNION ALL
+
+-- 3. 전월이동대비
+      SELECT '전월이동'         AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
             ,CASE B.SEQ 
                   WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
@@ -91,10 +112,95 @@ BEGIN
               SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
               SELECT 2 FROM SYSIBM.SYSDUMMY1
              ) B
+      WHERE  A.BASE_YYYYMM BETWEEN '201301' AND P_BASIS_YYYYMM
+      AND    A.SCENARIO_TYPE_CD = 'MP'
+      AND    A.CAT_CD = 'BEP_SMART_DIV'
+      AND    A.KPI_CD in ('SALE')
+      AND    A.SUBSDR_CD = P_SUBSDR_CD
+      AND    A.DIV_CD = P_DIV_CD
+      GROUP BY A.SUBSDR_CD
+              ,CASE B.SEQ 
+                    WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
+                    WHEN 2 THEN A.BASE_YYYYMM END
+              ,A.KPI_CD
+
+      UNION ALL
+
+-- 4. 전년대비
+      SELECT '전년대비'         AS COL_INDEX
+            ,A.SUBSDR_CD          AS SUBSDR_CD
+            ,CASE B.SEQ 
+                  WHEN 1 THEN SUBSTR(TO_CHAR(ADD_MONTHS(TO_DATE(A.BASE_YYYYMM, 'YYYYMM'), +12), 'YYYYMM'),1,4)
+                  WHEN 2 THEN SUBSTR(TO_CHAR(ADD_MONTHS(TO_DATE(A.BASE_YYYYMM, 'YYYYMM'), +12), 'YYYYMM'),1,4)||SUBSTR(TO_CHAR(ADD_MONTHS(TO_DATE(A.BASE_YYYYMM, 'YYYYMM'), -12), 'YYYYMM'),5,2) END AS BASE_YYYYMM
+            ,A.KPI_CD             AS KPI_CD
+            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+            ,'0'                  AS SORT_KEY
+      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
             ,(
               SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
               SELECT 2 FROM SYSIBM.SYSDUMMY1
-             ) C
+             ) B
+      WHERE  A.BASE_YYYYMM BETWEEN '201301' AND SUBSTR(TO_CHAR(ADD_MONTHS(TO_DATE(P_BASIS_YYYYMM, 'YYYYMM'), -12), 'YYYYMM'),1,4)||'12'
+      AND    A.SCENARIO_TYPE_CD = 'MP'
+      AND    A.CAT_CD = 'BEP_SMART_DIV'
+      AND    A.KPI_CD in ('SALE')
+      AND    A.SUBSDR_CD = P_SUBSDR_CD
+      AND    A.DIV_CD = P_DIV_CD
+      GROUP BY A.SUBSDR_CD
+              ,CASE B.SEQ 
+                  WHEN 1 THEN SUBSTR(TO_CHAR(ADD_MONTHS(TO_DATE(A.BASE_YYYYMM, 'YYYYMM'), +12), 'YYYYMM'),1,4)
+                  WHEN 2 THEN SUBSTR(TO_CHAR(ADD_MONTHS(TO_DATE(A.BASE_YYYYMM, 'YYYYMM'), +12), 'YYYYMM'),1,4)||SUBSTR(TO_CHAR(ADD_MONTHS(TO_DATE(A.BASE_YYYYMM, 'YYYYMM'), -12), 'YYYYMM'),5,2) END
+              ,A.KPI_CD
+
+      UNION ALL
+
+-- 5. 광고선전비/판매촉진비
+      SELECT CASE A.SUB_CAT_CD
+                  WHEN 'FC' THEN '광고선전비'
+                  WHEN 'VC' THEN '판매촉진비' END         AS COL_INDEX
+            ,A.SUBSDR_CD          AS SUBSDR_CD
+            ,CASE B.SEQ 
+                  WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
+                  WHEN 2 THEN A.BASE_YYYYMM END AS BASE_YYYYMM
+            ,A.KPI_CD             AS KPI_CD
+            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+            ,'0'                  AS SORT_KEY
+      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+            ,(
+              SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
+              SELECT 2 FROM SYSIBM.SYSDUMMY1
+             ) B
+      WHERE  A.BASE_YYYYMM BETWEEN '201301' AND P_BASIS_YYYYMM
+      AND    A.SCENARIO_TYPE_CD = 'AC0'
+      AND    A.CAT_CD = 'BEP_SMART_OH'
+      AND    A.KPI_CD in ('OH101000')
+      AND    A.SUBSDR_CD = P_SUBSDR_CD
+      AND    A.DIV_CD = P_DIV_CD
+      GROUP BY CASE A.SUB_CAT_CD
+                  WHEN 'FC' THEN '광고선전비'
+                  WHEN 'VC' THEN '판매촉진비' END
+              ,A.SUBSDR_CD
+              ,CASE B.SEQ 
+                    WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
+                    WHEN 2 THEN A.BASE_YYYYMM END
+              ,A.KPI_CD
+
+      UNION ALL
+            
+-- 6. 저수익 매출
+      SELECT '저수익매출' AS COL_INDEX
+            ,A.SUBSDR_CD          AS SUBSDR_CD
+            ,CASE B.SEQ 
+                  WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
+                  WHEN 2 THEN A.BASE_YYYYMM END AS BASE_YYYYMM
+            ,A.KPI_CD             AS KPI_CD
+            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+            ,'0'                  AS SORT_KEY
+      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+            ,(
+              SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
+              SELECT 2 FROM SYSIBM.SYSDUMMY1
+             ) B
             ,(
               SELECT 'MARGINAL_PF_(-)'  AS SUB_CAT_CD, '0%미만' AS SUB_CAT_NM FROM SYSIBM.SYSDUMMY1 UNION ALL
               SELECT 'MARGINAL_PF_0_5'  AS SUB_CAT_CD, '0%~5%'  AS SUB_CAT_NM FROM SYSIBM.SYSDUMMY1 UNION ALL
@@ -107,53 +213,7 @@ BEGIN
       AND    A.SUB_CAT_CD = D.SUB_CAT_CD
       AND    A.SUBSDR_CD = P_SUBSDR_CD
       AND    A.DIV_CD = P_DIV_CD
-      GROUP BY CASE C.SEQ
-                  WHEN 1 THEN '저수익모델매출'
-                  WHEN 2 THEN '저수익구간'||D.SUB_CAT_NM END
-              ,A.SUBSDR_CD
-              ,CASE B.SEQ 
-                    WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
-                    WHEN 2 THEN A.BASE_YYYYMM END
-              ,A.KPI_CD
-
-      UNION ALL
-      
--- 3. 저수익 모델수 / 저수익구간모델수
-      SELECT CASE C.SEQ
-                  WHEN 1 THEN '저수익모델수'
-                  WHEN 2 THEN '저수익구간모델수'||D.SUB_CAT_NM END AS COL_INDEX
-            ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,CASE B.SEQ 
-                  WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
-                  WHEN 2 THEN A.BASE_YYYYMM END AS BASE_YYYYMM
-            ,A.KPI_CD             AS KPI_CD
-            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-            ,'0'                  AS SORT_KEY
-      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-            ,(
-              SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
-              SELECT 2 FROM SYSIBM.SYSDUMMY1
-             ) B
-            ,(
-              SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
-              SELECT 2 FROM SYSIBM.SYSDUMMY1
-             ) C
-            ,(
-              SELECT 'MARGINAL_PF_(-)'  AS SUB_CAT_CD, '0%미만' AS SUB_CAT_NM FROM SYSIBM.SYSDUMMY1 UNION ALL
-              SELECT 'MARGINAL_PF_0_5'  AS SUB_CAT_CD, '0%~5%'  AS SUB_CAT_NM FROM SYSIBM.SYSDUMMY1 UNION ALL
-              SELECT 'MARGINAL_PF_5_10' AS SUB_CAT_CD, '5%~10%' AS SUB_CAT_NM FROM SYSIBM.SYSDUMMY1 
-             ) D
-      WHERE  A.BASE_YYYYMM BETWEEN '201301' AND P_BASIS_YYYYMM
-      AND    A.SCENARIO_TYPE_CD = 'AC0'
-      AND    A.CAT_CD = 'BEP_SMART_SUBSDR'
-      AND    A.KPI_CD in ('MODEL_COUNT')
-      AND    A.SUB_CAT_CD = D.SUB_CAT_CD
-      AND    A.SUBSDR_CD = P_SUBSDR_CD
-      AND    A.DIV_CD = P_DIV_CD
-      GROUP BY CASE C.SEQ
-                  WHEN 1 THEN '저수익모델수'
-                  WHEN 2 THEN '저수익구간모델수'||D.SUB_CAT_NM END
-              ,A.SUBSDR_CD
+      GROUP BY A.SUBSDR_CD
               ,CASE B.SEQ 
                     WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
                     WHEN 2 THEN A.BASE_YYYYMM END
@@ -161,92 +221,30 @@ BEGIN
 
       UNION ALL
 
--- 4. 구간대별매출
-      SELECT '구간대별'||D.SUB_CAT_NM  AS COL_INDEX
+-- 7. 한계적자매출/한계이익
+      SELECT CASE SUBSTR(D.SUB_CAT_CD,1,3)
+                  WHEN 'COI' THEN '한계이익'
+                  ELSE '한계적자매출' END AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
             ,CASE B.SEQ 
                   WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
                   WHEN 2 THEN A.BASE_YYYYMM END AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
             ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-            ,'0'                  AS SORT_KEY
+            ,'0'                  AS SORT_KEY           
       FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
             ,(
               SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
               SELECT 2 FROM SYSIBM.SYSDUMMY1
              ) B
             ,(
-              SELECT 'MARGINAL_PF_10_20'  AS SUB_CAT_CD, '10%~20%'  AS SUB_CAT_NM FROM SYSIBM.SYSDUMMY1 UNION ALL
-              SELECT 'MARGINAL_PF_20_30'  AS SUB_CAT_CD, '20%~30%'  AS SUB_CAT_NM FROM SYSIBM.SYSDUMMY1 UNION ALL
-              SELECT 'MARGINAL_PF_30'     AS SUB_CAT_CD, '30%이상'  AS SUB_CAT_NM FROM SYSIBM.SYSDUMMY1 
-             ) D
-      WHERE  A.BASE_YYYYMM BETWEEN '201301' AND P_BASIS_YYYYMM
-      AND    A.SCENARIO_TYPE_CD = 'AC0'
-      AND    A.CAT_CD = 'BEP_SMART_SUBSDR'
-      AND    A.KPI_CD in ('SALE')
-      AND    A.SUB_CAT_CD = D.SUB_CAT_CD
-      AND    A.SUBSDR_CD = P_SUBSDR_CD
-      AND    A.DIV_CD = P_DIV_CD
-      GROUP BY '구간대별'||D.SUB_CAT_NM 
-              ,A.SUBSDR_CD
-              ,CASE B.SEQ 
-                    WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
-                    WHEN 2 THEN A.BASE_YYYYMM END
-              ,A.KPI_CD
-
-      UNION ALL
-
--- 5. 구간대별모델수
-      SELECT '구간대별모델수'||D.SUB_CAT_NM  AS COL_INDEX
-            ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,CASE B.SEQ 
-                  WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
-                  WHEN 2 THEN A.BASE_YYYYMM END AS BASE_YYYYMM
-            ,A.KPI_CD             AS KPI_CD
-            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-            ,'0'                  AS SORT_KEY
-      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-            ,(
-              SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
-              SELECT 2 FROM SYSIBM.SYSDUMMY1
-             ) B
-            ,(
-              SELECT 'MARGINAL_PF_10_20'  AS SUB_CAT_CD, '10%~20%'  AS SUB_CAT_NM FROM SYSIBM.SYSDUMMY1 UNION ALL
-              SELECT 'MARGINAL_PF_20_30'  AS SUB_CAT_CD, '20%~30%'  AS SUB_CAT_NM FROM SYSIBM.SYSDUMMY1 UNION ALL
-              SELECT 'MARGINAL_PF_30'     AS SUB_CAT_CD, '30%이상'  AS SUB_CAT_NM FROM SYSIBM.SYSDUMMY1 
-             ) D
-      WHERE  A.BASE_YYYYMM BETWEEN '201301' AND P_BASIS_YYYYMM
-      AND    A.SCENARIO_TYPE_CD = 'AC0'
-      AND    A.CAT_CD = 'BEP_SMART_SUBSDR'
-      AND    A.KPI_CD in ('MODEL_COUNT')
-      AND    A.SUB_CAT_CD = D.SUB_CAT_CD
-      AND    A.SUBSDR_CD = P_SUBSDR_CD
-      AND    A.DIV_CD = P_DIV_CD
-      GROUP BY '구간대별모델수'||D.SUB_CAT_NM 
-              ,A.SUBSDR_CD
-              ,CASE B.SEQ 
-                    WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
-                    WHEN 2 THEN A.BASE_YYYYMM END
-              ,A.KPI_CD
-
-      UNION ALL
-
--- 6. 한계적자금액
-      SELECT '한계'||D.SUB_CAT_NM  AS COL_INDEX
-            ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,CASE B.SEQ 
-                  WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
-                  WHEN 2 THEN A.BASE_YYYYMM END AS BASE_YYYYMM
-            ,A.KPI_CD             AS KPI_CD
-            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-            ,'0'                  AS SORT_KEY
-      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-            ,(
-              SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
-              SELECT 2 FROM SYSIBM.SYSDUMMY1
-             ) B
-            ,(
-              SELECT 'MARGINAL_PF_(-)'     AS SUB_CAT_CD, '적자금액'  AS SUB_CAT_NM FROM SYSIBM.SYSDUMMY1 
+              SELECT 'MARGINAL_PF_(-)'  AS SUB_CAT_CD FROM SYSIBM.SYSDUMMY1 UNION ALL
+              SELECT 'COI_-10_-5'  AS SUB_CAT_CD FROM SYSIBM.SYSDUMMY1 UNION ALL
+              SELECT 'COI_-15'  AS SUB_CAT_CD FROM SYSIBM.SYSDUMMY1 UNION ALL
+              SELECT 'COI_-15_-10'  AS SUB_CAT_CD FROM SYSIBM.SYSDUMMY1 UNION ALL
+              SELECT 'COI_-5_0'  AS SUB_CAT_CD FROM SYSIBM.SYSDUMMY1 UNION ALL
+              SELECT 'COI_0_10'  AS SUB_CAT_CD FROM SYSIBM.SYSDUMMY1 UNION ALL
+              SELECT 'COI_10'  AS SUB_CAT_CD FROM SYSIBM.SYSDUMMY1
              ) D
       WHERE  A.BASE_YYYYMM BETWEEN '201301' AND P_BASIS_YYYYMM
       AND    A.SCENARIO_TYPE_CD = 'AC0'
@@ -255,7 +253,9 @@ BEGIN
       AND    A.SUB_CAT_CD = D.SUB_CAT_CD
       AND    A.SUBSDR_CD = P_SUBSDR_CD
       AND    A.DIV_CD = P_DIV_CD
-      GROUP BY'한계'||D.SUB_CAT_NM 
+      GROUP BY CASE SUBSTR(D.SUB_CAT_CD,1,3)
+                  WHEN 'COI' THEN '한계이익'
+                  ELSE '한계적자매출' END
               ,A.SUBSDR_CD
               ,CASE B.SEQ 
                     WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
@@ -264,8 +264,11 @@ BEGIN
 
       UNION ALL
 
--- 7. 적자모델수
-      SELECT D.SUB_CAT_NM  AS COL_INDEX
+-- 8.재고일수/역산법/장기재고
+      SELECT CASE A.KPI_CD
+                    WHEN 'INV_DIO' THEN '재고일수'
+                    WHEN 'INV_DIO_R' THEN '역산법'
+                    WHEN 'INV_LONG_TERM' THEN '장기재고' END         AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
             ,CASE B.SEQ 
                   WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
@@ -278,142 +281,22 @@ BEGIN
               SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
               SELECT 2 FROM SYSIBM.SYSDUMMY1
              ) B
-            ,(
-              SELECT 'MARGINAL_PF_(-)'     AS SUB_CAT_CD, '적자모델수'  AS SUB_CAT_NM FROM SYSIBM.SYSDUMMY1 
-             ) D
       WHERE  A.BASE_YYYYMM BETWEEN '201301' AND P_BASIS_YYYYMM
       AND    A.SCENARIO_TYPE_CD = 'AC0'
-      AND    A.CAT_CD = 'BEP_SMART_SUBSDR'
-      AND    A.KPI_CD in ('MODEL_COUNT')
-      AND    A.SUB_CAT_CD = D.SUB_CAT_CD
+      AND    A.CAT_CD = 'SMART_INV'
+      AND    A.KPI_CD IN ('INV_DIO', 'INV_DIO_R', 'INV_LONG_TERM')
       AND    A.SUBSDR_CD = P_SUBSDR_CD
       AND    A.DIV_CD = P_DIV_CD
-      GROUP BY D.SUB_CAT_NM 
+      GROUP BY CASE A.KPI_CD
+                    WHEN 'INV_DIO' THEN '재고일수'
+                    WHEN 'INV_DIO_R' THEN '역산법'
+                    WHEN 'INV_LONG_TERM' THEN '장기재고' END
               ,A.SUBSDR_CD
               ,CASE B.SEQ 
                     WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
                     WHEN 2 THEN A.BASE_YYYYMM END
               ,A.KPI_CD
 
-      UNION ALL
-
--- 8. 한계이익
-      SELECT '한계이익'  AS COL_INDEX
-            ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,CASE B.SEQ 
-                  WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
-                  WHEN 2 THEN A.BASE_YYYYMM END AS BASE_YYYYMM
-            ,A.KPI_CD             AS KPI_CD
-            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-            ,'0'                  AS SORT_KEY
-      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-            ,(
-              SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
-              SELECT 2 FROM SYSIBM.SYSDUMMY1
-             ) B
-      WHERE  A.BASE_YYYYMM BETWEEN '201301' AND P_BASIS_YYYYMM
-      AND    A.SCENARIO_TYPE_CD = 'AC0'
-      AND    A.CAT_CD = 'BEP_SMART_SUBSDR'
-      AND    A.KPI_CD in ('MGN_PROFIT')
-      AND    A.SUB_CAT_CD LIKE 'COI%'
-      AND    A.SUBSDR_CD = P_SUBSDR_CD
-      AND    A.DIV_CD = P_DIV_CD
-      GROUP BY A.SUBSDR_CD
-              ,CASE B.SEQ 
-                    WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
-                    WHEN 2 THEN A.BASE_YYYYMM END
-              ,A.KPI_CD
-
-      UNION ALL
--- 요기부터는 정확하지 않음. 엑셀작업 후 변경바람
--- 9. BEP매출
-      SELECT 'BEP매출' AS COL_INDEX
-                  ,A.SUBSDR_CD          AS SUBSDR_CD
-                  ,A.BASE_YYYYMM        AS BASE_YYYYMM
-                  ,'BEP매출'             AS KPI_CD
-                  ,SUM(A.AMOUNT) AS AMOUNT
-                  ,'0'                  AS SORT_KEY
-      FROM  (
-             SELECT A.KPI_CD AS COL_INDEX
-                   ,A.SUBSDR_CD          AS SUBSDR_CD
-                   ,CASE B.SEQ 
-                         WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
-                         WHEN 2 THEN A.BASE_YYYYMM END AS BASE_YYYYMM
-                   ,A.KPI_CD             AS KPI_CD
-                   ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-                   ,'0'                  AS SORT_KEY
-             FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-                   ,(
-                     SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
-                     SELECT 2 FROM SYSIBM.SYSDUMMY1
-                    ) B
-             WHERE  A.BASE_YYYYMM BETWEEN '201301' AND P_BASIS_YYYYMM
-             AND    A.SCENARIO_TYPE_CD = 'AC0'
-             AND    A.CAT_CD IN ('BEP_SMART_DIV')
-             AND    A.KPI_CD in ('SALE')
-             AND    A.SUBSDR_CD = P_SUBSDR_CD
-             AND    A.DIV_CD = P_DIV_CD
-             GROUP BY A.KPI_CD
-                     ,A.SUBSDR_CD
-                     ,CASE B.SEQ 
-                           WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
-                           WHEN 2 THEN A.BASE_YYYYMM END
-             UNION ALL
-             SELECT A.KPI_CD AS COL_INDEX
-                   ,A.SUBSDR_CD          AS SUBSDR_CD
-                   ,CASE B.SEQ 
-                         WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
-                         WHEN 2 THEN A.BASE_YYYYMM END AS BASE_YYYYMM
-                   ,A.KPI_CD             AS KPI_CD
-                   ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-                   ,'0'                  AS SORT_KEY
-             FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-                   ,(
-                     SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
-                     SELECT 2 FROM SYSIBM.SYSDUMMY1
-                    ) B
-             WHERE  A.BASE_YYYYMM BETWEEN '201301' AND P_BASIS_YYYYMM
-             AND    A.SCENARIO_TYPE_CD = 'AC0'
-             AND    A.CAT_CD IN ('BEP_SMART_SUBSDR')
-             AND    A.KPI_CD in ('MGN_PROFIT')
-             AND    A.SUB_CAT_CD LIKE 'COI%'
-             AND    A.SUBSDR_CD = P_SUBSDR_CD
-             AND    A.DIV_CD = P_DIV_CD
-             GROUP BY A.KPI_CD
-                     ,A.SUBSDR_CD
-                     ,CASE B.SEQ 
-                           WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
-                           WHEN 2 THEN A.BASE_YYYYMM END
-            ) A
-      GROUP BY A.SUBSDR_CD
-                    ,A.BASE_YYYYMM
-
-      UNION ALL
--- 10. 유효모델수
-      SELECT '유효모델수'  AS COL_INDEX
-            ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,CASE B.SEQ 
-                  WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
-                  WHEN 2 THEN A.BASE_YYYYMM END AS BASE_YYYYMM
-            ,A.KPI_CD             AS KPI_CD
-            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-            ,'0'                  AS SORT_KEY
-      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-            ,(
-              SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
-              SELECT 2 FROM SYSIBM.SYSDUMMY1
-             ) B
-      WHERE  A.BASE_YYYYMM BETWEEN '201301' AND P_BASIS_YYYYMM
-      AND    A.SCENARIO_TYPE_CD = 'AC0'
-      AND    A.CAT_CD = 'BEP_SMART_SUBSDR'
-      AND    A.KPI_CD in ('MODEL_COUNT')
-      AND    A.SUBSDR_CD = P_SUBSDR_CD
-      AND    A.DIV_CD = P_DIV_CD
-      GROUP BY A.SUBSDR_CD
-              ,CASE B.SEQ 
-                    WHEN 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
-                    WHEN 2 THEN A.BASE_YYYYMM END
-              ,A.KPI_CD
   
     WITH UR;
 

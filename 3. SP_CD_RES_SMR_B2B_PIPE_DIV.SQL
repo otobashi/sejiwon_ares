@@ -67,12 +67,15 @@ BEGIN
               WHERE  CODE_TYPE = 'PIPELINE'
               AND    USE_FLAG = 'Y'
               AND    DIVISION_CODE = P_DIV_CD ) C
-            ,(SELECT CORPORATION_CODE AS CORP_CD
-                    ,DISPLAY_NAME1 AS DISP_ENG_NM
-                    ,DISPLAY_NAME2 AS DISP_KOR_NM
-                    ,DISPLAY_ORDER_SEQ AS DISP_SEQ 
-              FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-              WHERE  CODE_TYPE = 'SMART_CORP_NATION') D
+            ,(SELECT A.CORPORATION_CODE AS CORP_CD
+                    ,B.DISPLAY_NAME2 AS DISP_ENG_NM
+                    ,B.DISPLAY_NAME1 AS DISP_KOR_NM
+                    ,A.DISPLAY_ORDER_SEQ AS DISP_SEQ     
+              FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER A
+                    ,IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER B
+              WHERE  A.CODE_TYPE = 'SMART_CORP_NATION'        
+              AND    B.CODE_TYPE = 'SMART_CNTRY_NAME'
+              AND    A.DIVISION_CODE = B.DIVISION_CODE) D
       WHERE  A.DIV_CD = C.DIV_CD
       AND    A.SUBSDR_CD = P_SUBSDR_CD
       AND    A.SUBSDR_CD = D.CORP_CD

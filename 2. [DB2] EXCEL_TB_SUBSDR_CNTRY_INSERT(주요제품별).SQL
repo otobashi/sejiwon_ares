@@ -41,8 +41,12 @@ SELECT A.ATTRIBUTE1
       ,'*'
       ,A.ATTRIBUTE1
       ,NULL
-      ,SUM(TO_NUMBER(CASE WHEN B.KPI_CD = 'SALE' THEN A.ATTRIBUTE34
-                          WHEN B.KPI_CD = 'COI'  THEN A.ATTRIBUTE38 END))
+      ,SUM(TO_NUMBER(CASE B.KPI_CD 
+                          WHEN 'SALE' THEN A.ATTRIBUTE34
+                          WHEN 'COI'  THEN A.ATTRIBUTE38
+                          WHEN 'GROSS_SALE' THEN A.ATTRIBUTE36
+                          WHEN 'MGN_PROFIT' THEN A.ATTRIBUTE37
+                          WHEN 'SALES_DEDUCTION' THEN A.ATTRIBUTE39 END))
       ,NULL
       ,NULL
       ,MIN(A.ATTRIBUTE9)
@@ -57,7 +61,10 @@ SELECT A.ATTRIBUTE1
 FROM   IPTDW.IPTDW_RES_EXCEL_UPLOAD_DATA A
       ,(
        SELECT 'SALE' AS KPI_CD FROM   SYSIBM.SYSDUMMY1 UNION ALL
-       SELECT 'COI'  AS KPI_CD FROM   SYSIBM.SYSDUMMY1
+       SELECT 'COI'  AS KPI_CD FROM   SYSIBM.SYSDUMMY1 UNION ALL
+       SELECT 'GROSS_SALE' AS KPI_CD FROM   SYSIBM.SYSDUMMY1 UNION ALL
+       SELECT 'MGN_PROFIT' AS KPI_CD FROM   SYSIBM.SYSDUMMY1 UNION ALL
+       SELECT 'SALES_DEDUCTION' AS KPI_CD FROM   SYSIBM.SYSDUMMY1
        ) B
 WHERE  A.SEQ = '1510'
 AND    A.CODE_ID = 'BEP_SMART_PROD'
@@ -72,20 +79,11 @@ GROUP BY A.ATTRIBUTE1
 WITH UR;
 
 /*
-SQL(1)          : 261312개의 행이 Delete 되었습니다. SQL 소요시간 (1.058)
+SQL(1)          : 890260개의 행이 Insert 되었습니다. SQL 소요시간 (1:22.327)
 
 
 모든 SQL 실행이 완료되었습니다.
-전체 SQL	: 1   SQL 소요시간( 1.058 )
+전체 SQL	: 1   SQL 소요시간( 1:22.327 )
 
 SQL 완료	: 1
-
-SQL(1)          : 686692개의 행이 Insert 되었습니다. SQL 소요시간 (25.827)
-
-
-모든 SQL 실행이 완료되었습니다.
-전체 SQL	: 1   SQL 소요시간( 25.827 )
-
-SQL 완료	: 1
-
 */
