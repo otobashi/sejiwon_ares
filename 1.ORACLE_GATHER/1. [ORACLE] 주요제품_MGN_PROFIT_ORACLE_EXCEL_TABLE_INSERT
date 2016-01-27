@@ -1,0 +1,114 @@
+INSERT INTO NPT_RS_MGR.TB_RS_EXCEL_UPLD_DATA_D
+(
+   PRCS_SEQ, 
+   RS_MODULE_CD, 
+   RS_CLSF_ID, 
+   RS_TYPE_CD, 
+   RS_TYPE_NAME, 
+   DIV_CD, 
+   BASE_YYYYMMDD, 
+   CD_DESC, 
+   SORT_SEQ, 
+   USE_FLAG, 
+   ATTRIBUTE1_VALUE, 
+   ATTRIBUTE2_VALUE, 
+   ATTRIBUTE3_VALUE, 
+   ATTRIBUTE4_VALUE, 
+   ATTRIBUTE5_VALUE, 
+   ATTRIBUTE6_VALUE, 
+   ATTRIBUTE7_VALUE, 
+   ATTRIBUTE8_VALUE, 
+   ATTRIBUTE9_VALUE, 
+   ATTRIBUTE10_VALUE, 
+   ATTRIBUTE11_VALUE, 
+   ATTRIBUTE12_VALUE, 
+   ATTRIBUTE13_VALUE, 
+   ATTRIBUTE14_VALUE, 
+   ATTRIBUTE15_VALUE, 
+   ATTRIBUTE16_VALUE
+)
+SELECT '1510'                                                          AS PRCS_SEQ                                 
+      ,'ARES'                                                          AS RS_MODULE_CD                             
+      ,'BEP_SMART'                                                     AS RS_CLSF_ID                               
+      ,'BEP_SMART_PROD_MMGN'                                                AS RS_TYPE_CD                               
+      ,'BEP_SMART_PROD_MMGN'                                                AS RS_TYPE_NAME                             
+      ,A11.DIV_CD                                                      AS DIV_CD                                   
+      ,A11.ACCTG_YYYYMM                                                AS BASE_YYYYMMDD                            
+      ,NULL                                                            AS CD_DESC                                  
+      ,NULL                                                            AS SORT_SEQ                                 
+      ,'Y'                                                             AS USE_FLAG                                 
+      ,a11.ACCTG_YYYYMM  BASE_YYYYMM,
+	a17.UP_PROD_CD  PROD_CD,
+	a115.PROD_ENG_NAME  PROD_ENG_NAME,
+	a16.UP_PROD_CD  PROD_CD0,
+	a17.PROD_ENG_NAME  PROD_ENG_NAME0,
+	a15.UP_PROD_CD  PROD_CD1,
+	a16.PROD_ENG_NAME  PROD_ENG_NAME1,
+	a14.USR_PROD1_LAST_CD  PROD_CD2,
+	a15.PROD_ENG_NAME  PROD_ENG_NAME2,
+	a11.SCENARIO_TYPE_CD  SCENARIO_TYPE_CD,
+	a11.DIV_CD  DIV_CD,
+	a13.DIV_SHRT_NAME  DIV_SHRT_NAME0,
+	a112.MGT_ORG_SHRT_NAME  MGT_ORG_SHRT_NAME,
+	a11.SUBSDR_CD  SUBSDR_CD1,
+	sum(a11.MGNL_PRF_MDL_CNT)  MGNL_PRF_MDL_CNT,
+	sum(a11.MGNL_PRF_AMT)  MGNL_PRF_AMT  
+/*
+	sum(a11.MGNL_PRF_MDL_CNT)  WJXBFS1,
+	sum(a11.SALES_QTY)  WJXBFS2,
+	sum(a11.GROSS_SALES_AMT)  WJXBFS3,
+	sum(a11.SALES_DEDUCT_AMT)  WJXBFS4,
+	sum(a11.NSALES_AMT)  WJXBFS5,
+	sum(a11.MGNL_PRF_AMT)  WJXBFS6,
+	sum(a11.OI_AMT)  WJXBFS7
+*/  
+from	NPT_APP.NV_DWW_BEP_MGNL_PRF_MDL_S	a11
+	left outer join	NPT_APP.NV_DWD_ZONE_M	a12
+	  on 	(a11.ZONE_RNR_CD = a12.ZONE_CD)
+	left outer join  NPT_APP.NV_DWD_DIV_LEAF_M  a13
+    on   (a11.DIV_CD = a13.DIV_CD)
+  left outer join  NPT_APP.NV_DWD_SUBSDR_MDL_PERIOD_H  a14
+    on   (a11.MDL_SFFX_CD = a14.MDL_SFFX_CD and 
+  a11.SUBSDR_CD = a14.SUBSDR_CD)
+  left outer join  NPT_APP.NV_DWD_RPT_PROD4_M  a15
+    on   (a14.USR_PROD1_LAST_CD = a15.PROD_CD)
+  left outer join  NPT_APP.NV_DWD_RPT_PROD3_M  a16
+    on   (a15.UP_PROD_CD = a16.PROD_CD)
+  left outer join  NPT_APP.NV_DWD_RPT_PROD2_M  a17
+    on   (a16.UP_PROD_CD = a17.PROD_CD)
+  left outer join  NPT_APP.NV_DWD_LOSS_FLAG_M  a18
+    on   (a11.LOSS_FLAG = a18.LOSS_FLAG_CD)
+  left outer join  NPT_APP.NV_DWD_RHQ_M  a19
+    on   (a12.RHQ_CD = a19.RHQ_CD)
+  left outer join  NPT_APP.NV_DWD_SCENARIO_TYPE_M  a110
+    on   (a11.SCENARIO_TYPE_CD = a110.SCENARIO_TYPE_CD)
+  left outer join  NPT_APP.NV_DWD_SUBSDR_M  a111
+    on   (a11.SUBSDR_CD = a111.SUBSDR_CD)
+  left outer join  NPT_APP.NV_DWD_MGT_ORG_RNR_M  a112
+    on   (a11.SALES_SUBSDR_RNR_CD = a112.MGT_ORG_CD)
+  left outer join  NPT_APP.NV_DWD_DIV1_M  a113
+    on   (a13.DIV1_CD = a113.DIV1_CD)
+  left outer join  NPT_APP.NV_DWD_DISABLE_TYPE_M  a114
+    on   (a11.DISABLE_TYPE_CD = a114.DISABLE_TYPE_CD)
+  left outer join  NPT_APP.NV_DWD_RPT_PROD1_M  a115
+    on   (a17.UP_PROD_CD = a115.PROD_CD)
+where  (a11.SCENARIO_TYPE_CD in ('AC0')
+ and a11.ACCTG_YYYYMM between '201301' and '201601'
+ and a11.SUBSDR_CD in ('EEUK')
+ and a11.VRNC_ALC_INCL_EXCL_CD in ('INCL')
+ and a11.CURRENCY_CD in ('USD'))
+ AND a11.LOSS_FLAG = 'Y'
+group by  a11.ACCTG_YYYYMM,     
+  a17.UP_PROD_CD,               
+  a115.PROD_ENG_NAME,           
+  a16.UP_PROD_CD,               
+  a17.PROD_ENG_NAME,            
+  a15.UP_PROD_CD,               
+  a16.PROD_ENG_NAME,            
+  a14.USR_PROD1_LAST_CD,        
+  a15.PROD_ENG_NAME,            
+  a11.SCENARIO_TYPE_CD,         
+  a11.DIV_CD,                   
+  a13.DIV_SHRT_NAME,            
+  a112.MGT_ORG_SHRT_NAME,       
+  a11.SUBSDR_CD
