@@ -1,114 +1,114 @@
-INSERT INTO NPT_RS_MGR.TB_RS_EXCEL_UPLD_DATA_D
+INSERT INTO npt_rs_mgr.tb_rs_excel_upld_data_d
 (
-       PRCS_SEQ         
-      ,RS_MODULE_CD     
-      ,RS_CLSF_ID       
-      ,RS_TYPE_CD       
-      ,RS_TYPE_NAME     
-      ,DIV_CD           
-      ,BASE_YYYYMMDD    
-      ,CD_DESC          
-      ,SORT_SEQ         
-      ,USE_FLAG         
-      ,ATTRIBUTE1_VALUE 
-      ,ATTRIBUTE2_VALUE 
-      ,ATTRIBUTE3_VALUE 
-      ,ATTRIBUTE4_VALUE 
-      ,ATTRIBUTE5_VALUE 
-      ,ATTRIBUTE6_VALUE 
-      ,ATTRIBUTE7_VALUE 
-      ,ATTRIBUTE8_VALUE 
-      ,ATTRIBUTE9_VALUE 
-      ,ATTRIBUTE10_VALUE
-      ,ATTRIBUTE11_VALUE
-      ,ATTRIBUTE12_VALUE
-      ,ATTRIBUTE13_VALUE
+       prcs_seq         
+      ,rs_module_cd     
+      ,rs_clsf_id       
+      ,rs_type_cd       
+      ,rs_type_name     
+      ,div_cd           
+      ,base_yyyymmdd    
+      ,cd_desc          
+      ,sort_seq         
+      ,use_flag         
+      ,attribute1_value 
+      ,attribute2_value 
+      ,attribute3_value 
+      ,attribute4_value 
+      ,attribute5_value 
+      ,attribute6_value 
+      ,attribute7_value 
+      ,attribute8_value 
+      ,attribute9_value 
+      ,attribute10_value
+      ,attribute11_value
+      ,attribute12_value
+      ,attribute13_value
 )
-SELECT '1530'               AS PRCS_SEQ                                 
-      ,'ARES'               AS RS_MODULE_CD                             
-      ,'BEP_SMART'          AS RS_CLSF_ID                               
-      ,'BEP_SMART_PIPE'     AS RS_TYPE_CD                               
-      ,'BEP_SMART_PIPE'     AS RS_TYPE_NAME                             
-      ,A11.DIV_CD           AS DIV_CD                                   
-      ,A11.BASE_YYYYMM      AS BASE_YYYYMMDD                            
-      ,NULL                 AS CD_DESC                                  
-      ,A14.SORT_ORDER       AS SORT_SEQ                                 
-      ,'Y'                  AS USE_FLAG                                 
-      ,A11.SUBSDR_CD        AS SUBSDR_CD
-      ,A14.SUBSDR_SHRT_NAME AS NEW_SUBSDR_SHRT_NAME
-      ,A14.SORT_ORDER       AS SORT1_ORDER
-      ,A11.MGT_ORG_CD       AS MGT_SUBSDR_CD
-      ,A13.MGT_SUBSDR_NAME  AS MGT_SUBSDR_NAME
-      ,A11.DIV_CD           AS DIV_CD
-      ,A12.DIV_KOR_NAME     AS DIV_KOR_NAME
-      ,A12.DIV_SHRT_NAME    AS DIV_SHRT_NAME
-      ,A11.BASE_YYYYMM  BASE_YYYYMM
-      ,SUM(DECODE(A11.CURRENCY_TYPE_CD,'USD',A11.CHG_AMT)) AS SALES_USD_AMOUNT   --SALES AMT(매출-프로젝트)
-      ,SUM(DECODE(A11.CURRENCY_TYPE_CD,'KRW',A11.CHG_AMT)) AS SALES_KRW_AMOUNT
-      ,SUM(DECODE(A11.CURRENCY_TYPE_CD,'USD',A11.BAL_AMT)) AS BACKLOG_USD_AMOUNT --BACKLOG AMOUNT(수주잔고)
-      ,SUM(DECODE(A11.CURRENCY_TYPE_CD,'KRW',A11.BAL_AMT)) AS BACKLOG_KRW_AMOUNT
-FROM   NPT_APP.NV_DWW_B2B_BAL_H  A11
-       LEFT OUTER JOIN  NPT_APP.NV_DWD_DIV_LEAF_M  A12
-       ON (A11.DIV_CD = A12.DIV_CD)
-       LEFT OUTER JOIN  NPT_APP.NV_DWD_SUBSDR_MGT_M  A13
-       ON (A11.MGT_ORG_CD = A13.MGT_SUBSDR_CD)
-       LEFT OUTER JOIN  NPT_APP.NV_DWD_SUBSDR_M  A14
-       ON (A11.SUBSDR_CD = A14.SUBSDR_CD)
-WHERE (A11.BASE_YYYYMM BETWEEN '201201' AND '201601' -- 요부분변경
-AND    A11.PJT_STG_CD IN ('A'))
-GROUP BY A11.SUBSDR_CD
-        ,A14.SUBSDR_SHRT_NAME
-        ,A14.SORT_ORDER
-        ,A11.MGT_ORG_CD
-        ,A13.MGT_SUBSDR_NAME
-        ,A11.DIV_CD
-        ,A12.DIV_KOR_NAME
-        ,A12.DIV_SHRT_NAME
-        ,A11.BASE_YYYYMM
+SELECT '1530'               AS prcs_seq                                 
+      ,'ARES'               AS rs_module_cd                             
+      ,'BEP_SMART'          AS rs_clsf_id                               
+      ,'BEP_SMART_PIPE'     AS rs_type_cd                               
+      ,'BEP_SMART_PIPE'     AS rs_type_name                             
+      ,a11.div_cd           AS div_cd                                   
+      ,a11.base_yyyymm      AS base_yyyymmdd                            
+      ,NULL                 AS cd_desc                                  
+      ,a14.sort_order       AS sort_seq                                 
+      ,'Y'                  AS use_flag                                 
+      ,a11.subsdr_cd        AS subsdr_cd
+      ,a14.subsdr_shrt_name AS new_subsdr_shrt_name
+      ,a14.sort_order       AS sort1_order
+      ,a11.mgt_org_cd       AS mgt_subsdr_cd
+      ,a13.mgt_subsdr_name  AS mgt_subsdr_name
+      ,a11.div_cd           AS div_cd
+      ,a12.div_kor_name     AS div_kor_name
+      ,a12.div_shrt_name    AS div_shrt_name
+      ,a11.base_yyyymm  base_yyyymm
+      ,SUM(DECODE(a11.currency_type_cd,'USD',a11.chg_amt)) AS sales_usd_amount   --SALES AMT(매출-프로젝트)
+      ,SUM(DECODE(a11.currency_type_cd,'KRW',a11.chg_amt)) AS sales_krw_amount
+      ,SUM(DECODE(a11.currency_type_cd,'USD',a11.bal_amt)) AS backlog_usd_amount --BACKLOG AMOUNT(수주잔고)
+      ,SUM(DECODE(a11.currency_type_cd,'KRW',a11.bal_amt)) AS backlog_krw_amount
+FROM   npt_app.nv_dww_b2b_bal_h  a11
+       LEFT OUTER JOIN  npt_app.nv_dwd_div_leaf_m  a12
+       ON (a11.div_cd = a12.div_cd)
+       LEFT OUTER JOIN  npt_app.nv_dwd_subsdr_mgt_m  a13
+       ON (a11.mgt_org_cd = a13.mgt_subsdr_cd)
+       LEFT OUTER JOIN  npt_app.nv_dwd_subsdr_m  a14
+       ON (a11.subsdr_cd = a14.subsdr_cd)
+WHERE (a11.base_yyyymm BETWEEN '201201' AND '201601' -- 요부분변경
+AND    a11.pjt_stg_cd IN ('A'))
+GROUP BY a11.subsdr_cd
+        ,a14.subsdr_shrt_name
+        ,a14.sort_order
+        ,a11.mgt_org_cd
+        ,a13.mgt_subsdr_name
+        ,a11.div_cd
+        ,a12.div_kor_name
+        ,a12.div_shrt_name
+        ,a11.base_yyyymm
 UNION ALL
-SELECT '1530'               AS PRCS_SEQ                                 
-      ,'ARES'               AS RS_MODULE_CD                             
-      ,'BEP_SMART'          AS RS_CLSF_ID                               
-      ,'BEP_SMART_PIPE'     AS RS_TYPE_CD                               
-      ,'BEP_SMART_PIPE'     AS RS_TYPE_NAME                             
-      ,DECODE(SUBSTR(A11.prod_lvl3_cd,1,2),'CS','GNTCS','HT','GNTHT') AS DIV_CD                                   
-      ,A11.BASE_YYYYMM      AS BASE_YYYYMMDD                            
-      ,NULL                 AS CD_DESC                                  
-      ,A14.SORT_ORDER       AS SORT_SEQ                                 
-      ,'Y'                  AS USE_FLAG                                 
-      ,A11.SUBSDR_CD        AS SUBSDR_CD
-      ,A14.SUBSDR_SHRT_NAME AS NEW_SUBSDR_SHRT_NAME
-      ,A14.SORT_ORDER       AS SORT1_ORDER
-      ,A11.MGT_ORG_CD       AS MGT_SUBSDR_CD
-      ,A13.MGT_SUBSDR_NAME  AS MGT_SUBSDR_NAME
-      ,DECODE(SUBSTR(A11.prod_lvl3_cd,1,2),'CS','GNTCS','HT','GNTHT') AS DIV_CD
-      ,A12.DIV_KOR_NAME     AS DIV_KOR_NAME
-      ,A12.DIV_SHRT_NAME    AS DIV_SHRT_NAME
-      ,A11.BASE_YYYYMM  BASE_YYYYMM
-      ,SUM(DECODE(A11.CURRENCY_TYPE_CD,'USD',A11.CHG_AMT)) AS SALES_USD_AMOUNT   --SALES AMT(매출-프로젝트)
-      ,SUM(DECODE(A11.CURRENCY_TYPE_CD,'KRW',A11.CHG_AMT)) AS SALES_KRW_AMOUNT
-      ,SUM(DECODE(A11.CURRENCY_TYPE_CD,'USD',A11.BAL_AMT)) AS BACKLOG_USD_AMOUNT --BACKLOG AMOUNT(수주잔고)
-      ,SUM(DECODE(A11.CURRENCY_TYPE_CD,'KRW',A11.BAL_AMT)) AS BACKLOG_KRW_AMOUNT
-FROM   NPT_APP.NV_DWW_B2B_BAL_H  A11
-       LEFT OUTER JOIN  NPT_APP.NV_DWD_DIV_LEAF_M  A12
-       ON (A11.DIV_CD = A12.DIV_CD)
-       LEFT OUTER JOIN  NPT_APP.NV_DWD_SUBSDR_MGT_M  A13
-       ON (A11.MGT_ORG_CD = A13.MGT_SUBSDR_CD)
-       LEFT OUTER JOIN  NPT_APP.NV_DWD_SUBSDR_M  A14
-       ON (A11.SUBSDR_CD = A14.SUBSDR_CD)
-WHERE (A11.BASE_YYYYMM BETWEEN '201201' AND '201601' -- 요부분변경
-AND    A11.div_cd = 'GNT'
-AND    SUBSTR(A11.prod_lvl3_cd,1,2) IN ('CS','HT')
-AND    SUBSTR(A11.prod_lvl4_cd,1,2) IN ('CS','HT')
-AND    A11.mdl_sffx_cd = '*'
-AND    A11.PJT_STG_CD IN ('A'))
-GROUP BY A11.SUBSDR_CD
-        ,A14.SUBSDR_SHRT_NAME
-        ,A14.SORT_ORDER
-        ,A11.MGT_ORG_CD
-        ,A13.MGT_SUBSDR_NAME
-        ,DECODE(SUBSTR(A11.prod_lvl3_cd,1,2),'CS','GNTCS','HT','GNTHT')
-        ,A12.DIV_KOR_NAME
-        ,A12.DIV_SHRT_NAME
-        ,A11.BASE_YYYYMM
+SELECT '1530'                                                         AS prcs_seq                                 
+      ,'ARES'                                                         AS rs_module_cd                             
+      ,'BEP_SMART'                                                    AS rs_clsf_id                               
+      ,'BEP_SMART_PIPE'                                               AS rs_type_cd                               
+      ,'BEP_SMART_PIPE'                                               AS rs_type_name                             
+      ,DECODE(SUBSTR(A11.prod_lvl3_cd,1,2),'CS','GNTCS','HT','GNTHT') AS div_cd                                   
+      ,a11.base_yyyymm                                                AS base_yyyymmdd                            
+      ,NULL                                                           AS cd_desc                                  
+      ,a14.sort_order                                                 AS sort_seq                                 
+      ,'Y'                                                            AS use_flag                                 
+      ,a11.subsdr_cd                                                  AS subsdr_cd
+      ,a14.subsdr_shrt_name                                           AS new_subsdr_shrt_name
+      ,a14.sort_order                                                 AS sort1_order
+      ,a11.mgt_org_cd                                                 AS mgt_subsdr_cd
+      ,a13.mgt_subsdr_name                                            AS mgt_subsdr_name
+      ,DECODE(SUBSTR(a11.prod_lvl3_cd,1,2),'CS','GNTCS','HT','GNTHT') AS div_cd
+      ,a12.div_kor_name                                               AS div_kor_name
+      ,a12.div_shrt_name                                              AS div_shrt_name
+      ,a11.base_yyyymm                                                AS base_yyyymm
+      ,SUM(DECODE(a11.currency_type_cd,'USD',a11.chg_amt))            AS sales_usd_amount        --SALES AMT(매출-프로젝트)
+      ,SUM(DECODE(a11.currency_type_cd,'KRW',a11.chg_amt))            AS sales_krw_amount        
+      ,SUM(DECODE(a11.currency_type_cd,'USD',a11.bal_amt))            AS backlog_usd_amount      --BACKLOG AMOUNT(수주잔고)
+      ,SUM(DECODE(a11.currency_type_cd,'KRW',a11.bal_amt))            AS backlog_krw_amount
+FROM   npt_app.nv_dww_b2b_bal_h  a11
+       LEFT OUTER JOIN  npt_app.nv_dwd_div_leaf_m  a12
+       ON (a11.div_cd = a12.div_cd)
+       LEFT OUTER JOIN  npt_app.nv_dwd_subsdr_mgt_m  a13
+       ON (a11.mgt_org_cd = a13.mgt_subsdr_cd)
+       LEFT OUTER JOIN  npt_app.nv_dwd_subsdr_m  a14
+       ON (a11.subsdr_cd = a14.subsdr_cd)
+WHERE (a11.base_yyyymm BETWEEN '201201' AND '201601' -- 요부분변경
+AND    a11.div_cd = 'GNT'
+AND    SUBSTR(a11.prod_lvl3_cd,1,2) IN ('CS','HT')
+AND    SUBSTR(a11.prod_lvl4_cd,1,2) IN ('CS','HT')
+AND    a11.mdl_sffx_cd = '*'
+AND    a11.pjt_stg_cd IN ('A'))
+GROUP BY a11.subsdr_cd
+        ,a14.subsdr_shrt_name
+        ,a14.sort_order
+        ,a11.mgt_org_cd
+        ,a13.mgt_subsdr_name
+        ,DECODE(SUBSTR(a11.prod_lvl3_cd,1,2),'CS','GNTCS','HT','GNTHT')
+        ,a12.div_kor_name
+        ,a12.div_shrt_name
+        ,a11.base_yyyymm
 ;

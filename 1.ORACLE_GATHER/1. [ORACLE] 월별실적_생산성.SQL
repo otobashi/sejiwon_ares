@@ -1,69 +1,69 @@
-INSERT INTO NPT_RS_MGR.TB_RS_EXCEL_UPLD_DATA_D
+INSERT INTO npt_rs_mgr.tb_rs_excel_upld_data_d
 (
-       PRCS_SEQ         
-      ,RS_MODULE_CD     
-      ,RS_CLSF_ID       
-      ,RS_TYPE_CD       
-      ,RS_TYPE_NAME     
-      ,DIV_CD           
-      ,BASE_YYYYMMDD    
-      ,CD_DESC          
-      ,SORT_SEQ         
-      ,USE_FLAG         
-      ,ATTRIBUTE1_VALUE 
-      ,ATTRIBUTE2_VALUE 
-      ,ATTRIBUTE3_VALUE 
-      ,ATTRIBUTE4_VALUE 
-      ,ATTRIBUTE5_VALUE 
-      ,ATTRIBUTE6_VALUE 
-      ,ATTRIBUTE7_VALUE 
-      ,ATTRIBUTE8_VALUE 
-      ,ATTRIBUTE9_VALUE 
-      ,ATTRIBUTE10_VALUE 
-      ,ATTRIBUTE11_VALUE 
+       prcs_seq         
+      ,rs_module_cd     
+      ,rs_clsf_id       
+      ,rs_type_cd       
+      ,rs_type_name     
+      ,div_cd           
+      ,base_yyyymmdd    
+      ,cd_desc          
+      ,sort_seq         
+      ,use_flag         
+      ,attribute1_value 
+      ,attribute2_value 
+      ,attribute3_value 
+      ,attribute4_value 
+      ,attribute5_value 
+      ,attribute6_value 
+      ,attribute7_value 
+      ,attribute8_value 
+      ,attribute9_value 
+      ,attribute10_value 
+      ,attribute11_value 
 )
-SELECT '1620'                                                          AS PRCS_SEQ                                 
-      ,'ARES'                                                          AS RS_MODULE_CD                             
-      ,'BEP_SMART'                                                     AS RS_CLSF_ID                               
-      ,'BEP_SMART_HR'                                                  AS RS_TYPE_CD                               
-      ,'BEP_SMART_HR'                                                  AS RS_TYPE_NAME                             
-      ,A.DIV_CD                                                        AS DIV_CD                                   
-      ,A.BASE_YYYYMM                                                   AS BASE_YYYYMMDD                            
-      ,NULL                                                            AS CD_DESC                                  
-      ,NULL                                                            AS SORT_SEQ                                 
-      ,'Y'                                                             AS USE_FLAG                                 
-      ,A.BASE_YYYYMM
-      ,A.SCENARIO_TYPE_CD
-      ,A.KPI_TYPE_CD
-      ,A.DIV_CD
-      ,A.SUBSDR_CD
-      ,A.ACCT_CD
-      ,B.ACCT_NM
-      ,SUM(A.CURRM_KRW_AMT) AS CURRM_KRW_AMT
-      ,SUM(A.CURRM_USD_AMT) AS CURRM_USD_AMT
-      ,SUM(A.ACCUM_KRW_AMT) AS ACCUM_KRW_AMT
-      ,SUM(A.ACCUM_USD_AMT) AS ACCUM_USD_AMT
-FROM   TB_DSM_KPI_DIV_S A
+SELECT '1620'                AS prcs_seq                                 
+      ,'ARES'                AS rs_module_cd                             
+      ,'BEP_SMART'           AS rs_clsf_id                               
+      ,'BEP_SMART_HR'        AS rs_type_cd                               
+      ,'BEP_SMART_HR'        AS rs_type_name                             
+      ,a.div_cd              AS div_cd                                   
+      ,a.base_yyyymm         AS base_yyyymmdd                            
+      ,NULL                  AS cd_desc                                  
+      ,NULL                  AS sort_seq                                 
+      ,'Y'                   AS use_flag                                 
+      ,a.base_yyyymm
+      ,a.scenario_type_cd
+      ,a.kpi_type_cd
+      ,a.div_cd
+      ,a.subsdr_cd
+      ,a.acct_cd
+      ,b.acct_nm
+      ,SUM(a.currm_krw_amt)  AS currm_krw_amt
+      ,SUM(a.currm_usd_amt)  AS currm_usd_amt
+      ,SUM(a.accum_krw_amt)  AS accum_krw_amt
+      ,SUM(a.accum_usd_amt)  AS accum_usd_amt
+FROM   tb_dsm_kpi_div_s a
       ,(
-        SELECT ACCT_CD, ACCT_DESC AS ACCT_NM
-        FROM   TB_DSD_ACCT_M
-        WHERE  ACCT_GR_CD = 'HR'
-        AND    ACCT_DESC IN ('(HR) 원당매출액','(HR) 원당매출액_사내도급제외','(HR) 인당매출액','(HR) 인당매출액_사내도급제외','(HR) 인원수','(HR) 인원수_사내도급제외'
+        SELECT acct_cd, acct_desc AS acct_nm
+        FROM   tb_dsd_acct_m
+        WHERE  acct_gr_cd = 'HR'
+        AND    acct_desc IN ('(HR) 원당매출액','(HR) 원당매출액_사내도급제외','(HR) 인당매출액','(HR) 인당매출액_사내도급제외','(HR) 인원수','(HR) 인원수_사내도급제외'
                           ,'(HR) 인원수_FSE','(HR) 인원수_ISE ','(HR) 인원수_임시직 ','(HR) 인원수_사내도급 ','(HR) 인원수_ISE_영업/마케팅','(HR) 인원수_공통인원'
                           ,'(HR) 인건비(HR생산성 기준)','(HR) 인건비_사내도급제외')
-      ) B            
-WHERE  A.BASE_YYYYMM BETWEEN '201301' AND '201601'
-AND    A.ACCT_CD = B.ACCT_CD
-AND    A.SUBSDR_CD = 'EEUK'
-AND    A.DIV_CD IN ('GLT','GTT','MST','CNT','DFT','DGT','DMT','CMS')
-AND    A.CURRENCY_CD = '*'
-AND    A.SCENARIO_TYPE_CD = 'AC0'
-AND    A.KPI_TYPE_CD IN ('HR', 'HR_CNT')
-GROUP BY A.BASE_YYYYMM
-      ,A.SCENARIO_TYPE_CD
-      ,A.KPI_TYPE_CD
-      ,A.DIV_CD
-      ,A.SUBSDR_CD
-      ,A.ACCT_CD
-      ,B.ACCT_NM
+      ) b            
+WHERE  a.base_yyyymm BETWEEN '201301' AND '201601'
+AND    a.acct_cd = b.acct_cd
+AND    a.subsdr_cd = 'EEUK'
+AND    a.div_cd IN ('GLT','GTT','MST','CNT','DFT','DGT','DMT','CMS')
+AND    a.currency_cd = '*'
+AND    a.scenario_type_cd = 'AC0'
+AND    a.kpi_type_cd in ('HR', 'HR_CNT')
+GROUP BY a.base_yyyymm
+        ,a.scenario_type_cd
+        ,a.kpi_type_cd
+        ,a.div_cd
+        ,a.subsdr_cd
+        ,a.acct_cd
+        ,b.acct_nm
 ;

@@ -1,388 +1,387 @@
-INSERT INTO NPT_RS_MGR.TB_RS_EXCEL_UPLD_DATA_D
-(
-   PRCS_SEQ, 
-   RS_MODULE_CD, 
-   RS_CLSF_ID, 
-   RS_TYPE_CD, 
-   RS_TYPE_NAME, 
-   DIV_CD, 
-   BASE_YYYYMMDD, 
-   CD_DESC, 
-   SORT_SEQ, 
-   USE_FLAG, 
-   ATTRIBUTE1_VALUE, 
-   ATTRIBUTE2_VALUE, 
-   ATTRIBUTE3_VALUE, 
-   ATTRIBUTE4_VALUE, 
-   ATTRIBUTE5_VALUE, 
-   ATTRIBUTE6_VALUE, 
-   ATTRIBUTE7_VALUE, 
-   ATTRIBUTE8_VALUE, 
-   ATTRIBUTE9_VALUE, 
-   ATTRIBUTE10_VALUE, 
-   ATTRIBUTE11_VALUE, 
-   ATTRIBUTE12_VALUE
-)
+        INSERT INTO npt_rs_mgr.tb_rs_excel_upld_data_d
+        (
+           prcs_seq,
+           rs_module_cd,
+           rs_clsf_id,
+           rs_type_cd,
+           rs_type_name,
+           div_cd,
+           base_yyyymmdd,
+           cd_desc,
+           sort_seq,
+           use_flag,
+           attribute1_value,
+           attribute2_value,
+           attribute3_value,
+           attribute4_value,
+           attribute5_value,
+           attribute6_value,
+           attribute7_value,
+           attribute8_value,
+           attribute9_value,
+           attribute10_value,
+           attribute11_value,
+           attribute12_value
+        )
         /*---------------------------------------------------
            한계이익 구간별 매출액,한계이익,마케팅비용 생성
         ----------------------------------------------------*/
-            WITH TEMPA( BASIS_YYYYMM, SUBSDR_CD, DIV_CD, MGNL_PRF_TYPE_CD,
-                        MGNL_PRF_RANGE_CD, OI_RANGE_CD, SCENARIO_TYPE_CD, GRADE_NAME, OLD_NEW_CD, VIRT_MDL_FLAG_CD,MGNL_PRF_MDL_CNT,
-                        GROSS_SALES_KRW_AMT, SALES_DEDUCT_KRW_AMT, NSALES_KRW_AMT, MGNL_PRF_KRW_AMT, OI_KRW_AMT,
-                        GROSS_SALES_USD_AMT, SALES_DEDUCT_USD_AMT, NSALES_USD_AMT, MGNL_PRF_USD_AMT, OI_USD_AMT ) AS
-            (
-            --AC0
-            SELECT  a11.ACCTG_YYYYMM  BASIS_YYYYMM,
-                    a11.SUBSDR_CD  SUBSDR_CD,
-                    a11.DIV_CD  DIV_CD,
-                    a11.ACCU6_LOSS_FLAG  MGNL_PRF_TYPE_CD,
-                    a11.MGNL_PRF_RANGE  MGNL_PRF_RANGE_CD,
-                    a11.OI_RANGE  OI_RANGE_CD,
-                    a11.SCENARIO_TYPE_CD SCENARIO_TYPE_CD,
-                    a18.ATTRIBUTE_NAME  GRD_NAME,
-                    a12.OLD_NEW_CD  OLD_NEW_CD,
-                    case when a11.MDL_SFFX_CD like 'VM-%.CPS' then 'Y' else a11.VIRT_MDL_FLAG end  VIRT_MDL_FLAG_CD,
-                    sum(a11.MGNL_PRF_MDL_CNT) MGNL_PRF_MDL_CNT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'KRW' THEN a11.GROSS_SALES_AMT END)   GROSS_SALES_KRW_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'KRW' THEN a11.SALES_DEDUCT_AMT END)  SALES_DEDUCT_KRW_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'KRW' THEN a11.NSALES_AMT END)        NSALES_KRW_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'KRW' THEN a11.MGNL_PRF_AMT END)      MGNL_PRF_KRW_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'KRW' THEN a11.OI_AMT END)            OI_KRW_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'USD' THEN a11.GROSS_SALES_AMT END)   GROSS_SALES_USD_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'USD' THEN a11.SALES_DEDUCT_AMT END)  SALES_DEDUCT_USD_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'USD' THEN a11.NSALES_AMT END)        NSALES_USD_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'USD' THEN a11.MGNL_PRF_AMT END)      MGNL_PRF_USD_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'USD' THEN a11.OI_AMT END)            OI_USD_AMT
-            FROM    NPT_APP.NV_DWW_BEP_MGNL_PRF_MDL_S  a11
-            LEFT OUTER JOIN  NPT_DW_MGR.TB_DWD_SUBSDR_MDL_PERIOD_H  a12
-            ON     (a11.ACCTG_YYYYMM = a12.ACCTG_YYYYMM
-            AND     a11.MDL_SFFX_CD = a12.MDL_SFFX_CD
-            AND     a11.SUBSDR_CD = a12.SUBSDR_CD)
-            LEFT OUTER JOIN  NPT_APP.NV_DWD_02_GRD_CD  a18
-            ON     (a12.GRD_CD = a18.ATTRIBUTE_CD)
-            WHERE  (a11.ACCTG_YYYYMM = '201301'
-            AND     a11.CONSLD_SALES_MDL_FLAG in ('Y')
-            AND     a11.VRNC_ALC_INCL_EXCL_CD in ('INCL')
-            AND     a11.CURRENCY_CD in ('KRW','USD')
-            AND     a11.SCENARIO_TYPE_CD in ('AC0', 'PR1', 'PR2', 'PR3', 'PR4')
-            AND     A11.DIV_CD NOT IN (SELECT CD_ID FROM npt_rs_mgr.tb_rs_clss_cd_m WHERE cd_clsf_id = 'RANGE_MGN' AND attribute3_value = 'ALL' AND USE_FLAG = 'Y'))
-            GROUP BY  a11.ACCTG_YYYYMM  ,
-                    a11.SUBSDR_CD,
-                    a11.DIV_CD  ,
-                    a11.ACCU6_LOSS_FLAG  ,
-                    a11.MGNL_PRF_RANGE  ,
-                    a11.OI_RANGE  ,
-                    a11.SCENARIO_TYPE_CD,
-                    a18.ATTRIBUTE_NAME  ,
-                    a12.OLD_NEW_CD  ,
-                      case when a11.MDL_SFFX_CD like 'VM-%.CPS' then 'Y' else a11.VIRT_MDL_FLAG end
-            UNION ALL
-            SELECT  a11.ACCTG_YYYYMM  BASIS_YYYYMM,
-                    a11.SUBSDR_CD,
-                    a11.DIV_CD  DIV_CD,
-                    a11.ACCU6_LOSS_FLAG  MGNL_PRF_TYPE_CD,
-                    a11.MGNL_PRF_RANGE  MGNL_PRF_RANGE_CD,
-                    a11.OI_RANGE  OI_RANGE_CD,
-                    a11.SCENARIO_TYPE_CD SCENARIO_TYPE_CD,
-                    a18.ATTRIBUTE_NAME  GRD_NAME,
-                    a12.OLD_NEW_CD  OLD_NEW_CD,
-                    case when a11.MDL_SFFX_CD like 'VM-%.CPS' then 'Y' else a11.VIRT_MDL_FLAG end  VIRT_MDL_FLAG_CD,
-                    sum(a11.MGNL_PRF_MDL_CNT) MGNL_PRF_MDL_CNT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'KRW' THEN a11.GROSS_SALES_AMT END)   GROSS_SALES_KRW_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'KRW' THEN a11.SALES_DEDUCT_AMT END)  SALES_DEDUCT_KRW_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'KRW' THEN a11.NSALES_AMT END)        NSALES_KRW_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'KRW' THEN a11.MGNL_PRF_AMT END)      MGNL_PRF_KRW_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'KRW' THEN a11.OI_AMT END)            OI_KRW_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'USD' THEN a11.GROSS_SALES_AMT END)   GROSS_SALES_USD_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'USD' THEN a11.SALES_DEDUCT_AMT END)  SALES_DEDUCT_USD_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'USD' THEN a11.NSALES_AMT END)        NSALES_USD_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'USD' THEN a11.MGNL_PRF_AMT END)      MGNL_PRF_USD_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'USD' THEN a11.OI_AMT END)            OI_USD_AMT
-            FROM    NPT_APP.NV_DWW_BEP_MGNL_PRF_MDL_S  a11
-            LEFT OUTER JOIN  NPT_DW_MGR.TB_DWD_SUBSDR_MDL_PERIOD_H  a12
-            ON     (a11.ACCTG_YYYYMM = a12.ACCTG_YYYYMM
-            AND     a11.MDL_SFFX_CD = a12.MDL_SFFX_CD
-            AND     a11.SUBSDR_CD = a12.SUBSDR_CD)
-            LEFT OUTER JOIN  NPT_APP.NV_DWD_02_GRD_CD  a18
-            ON     (a12.GRD_CD = a18.ATTRIBUTE_CD)
-            WHERE  (a11.ACCTG_YYYYMM = '201301'
-            AND     a11.CONSLD_SALES_MDL_FLAG in ('Y', 'N', '*')
-            AND     a11.VRNC_ALC_INCL_EXCL_CD in ('INCL')
-            AND     a11.CURRENCY_CD in ('KRW','USD')
-            AND     A11.DIV_CD IN (SELECT CD_ID FROM npt_rs_mgr.tb_rs_clss_cd_m WHERE cd_clsf_id = 'RANGE_MGN' AND attribute3_value = 'ALL' AND USE_FLAG = 'Y')
-            AND     a11.SCENARIO_TYPE_CD in ('AC0', 'PR1', 'PR2', 'PR3', 'PR4'))
-            GROUP BY  a11.ACCTG_YYYYMM  ,
-                    a11.SUBSDR_CD,
-                    a11.DIV_CD  ,
-                    a11.ACCU6_LOSS_FLAG  ,
-                    a11.MGNL_PRF_RANGE  ,
-                    a11.OI_RANGE  ,
-                    a11.SCENARIO_TYPE_CD,
-                    a18.ATTRIBUTE_NAME  ,
-                    a12.OLD_NEW_CD  ,
-                    case when a11.MDL_SFFX_CD like 'VM-%.CPS' then 'Y' else a11.VIRT_MDL_FLAG end
-            UNION ALL
-            /* PR1 */
-            SELECT  a11.ACCTG_YYYYMM  BASIS_YYYYMM,
-                    a11.SUBSDR_CD,
-                    a11.DIV_CD  DIV_CD,
-                    a11.ACCU6_LOSS_FLAG  MGNL_PRF_TYPE_CD,
-                    a11.MGNL_PRF_RANGE  MGNL_PRF_RANGE_CD,
-                    a11.OI_RANGE  OI_RANGE_CD,
-                    a11.SCENARIO_TYPE_CD SCENARIO_TYPE_CD,
-                    a18.ATTRIBUTE_NAME  GRD_NAME,
-                    a12.OLD_NEW_CD  OLD_NEW_CD,
-                    case when a11.MDL_SFFX_CD like 'VM-%.CPS' then 'Y' else DECODE(a11.VIRT_MDL_FLAG,'*','N') end  VIRT_MDL_FLAG_CD,
-                    sum(a11.MGNL_PRF_MDL_CNT) MGNL_PRF_MDL_CNT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'KRW' THEN a11.GROSS_SALES_AMT END)   GROSS_SALES_KRW_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'KRW' THEN a11.SALES_DEDUCT_AMT END)  SALES_DEDUCT_KRW_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'KRW' THEN a11.NSALES_AMT END)        NSALES_KRW_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'KRW' THEN a11.MGNL_PRF_AMT END)      MGNL_PRF_KRW_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'KRW' THEN a11.OI_AMT END)            OI_KRW_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'USD' THEN a11.GROSS_SALES_AMT END)   GROSS_SALES_USD_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'USD' THEN a11.SALES_DEDUCT_AMT END)  SALES_DEDUCT_USD_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'USD' THEN a11.NSALES_AMT END)        NSALES_USD_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'USD' THEN a11.MGNL_PRF_AMT END)      MGNL_PRF_USD_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'USD' THEN a11.OI_AMT END)            OI_USD_AMT
-            FROM    NPT_APP.NV_DWW_BEP_MGNL_PRF_MDL_S  a11
-            LEFT OUTER JOIN  NPT_DW_MGR.TB_DWD_SUBSDR_MDL_PERIOD_H  a12
-            ON     (a11.ACCTG_YYYYMM = a12.ACCTG_YYYYMM
-            AND     a11.MDL_SFFX_CD = a12.MDL_SFFX_CD
-            AND     a11.SUBSDR_CD = a12.SUBSDR_CD)
-            LEFT OUTER JOIN  NPT_APP.NV_DWD_02_GRD_CD  a18
-            ON     (a12.GRD_CD = a18.ATTRIBUTE_CD)
-            WHERE  (a11.ACCTG_YYYYMM = '201301'
-            AND     a11.CONSLD_SALES_MDL_FLAG in ('Y')
-            AND     a11.VRNC_ALC_INCL_EXCL_CD in ('INCL')
-            AND     a11.CURRENCY_CD in ('KRW','USD')
-            AND     a11.SCENARIO_TYPE_CD in ('PR1','PR2','PR3','PR4')
-            AND     A11.DIV_CD NOT IN (SELECT CD_ID FROM npt_rs_mgr.tb_rs_clss_cd_m WHERE cd_clsf_id = 'RANGE_MGN' AND attribute3_value = 'ALL' AND USE_FLAG = 'Y'))
-            GROUP BY  a11.ACCTG_YYYYMM ,
-                    a11.SUBSDR_CD,
-                    a11.DIV_CD  ,
-                    a11.ACCU6_LOSS_FLAG  ,
-                    a11.MGNL_PRF_RANGE  ,
-                    a11.OI_RANGE  ,
-                    a11.SCENARIO_TYPE_CD,
-                    a18.ATTRIBUTE_NAME  ,
-                    a12.OLD_NEW_CD  ,
-                      case when a11.MDL_SFFX_CD like 'VM-%.CPS' then 'Y' else DECODE(a11.VIRT_MDL_FLAG,'*','N') end
-            UNION ALL
-            SELECT  a11.ACCTG_YYYYMM  BASIS_YYYYMM,
-                    a11.SUBSDR_CD,
-                    a11.DIV_CD  DIV_CD,
-                    a11.ACCU6_LOSS_FLAG  MGNL_PRF_TYPE_CD,
-                    a11.MGNL_PRF_RANGE  MGNL_PRF_RANGE_CD,
-                    a11.OI_RANGE  OI_RANGE_CD,
-                    a11.SCENARIO_TYPE_CD SCENARIO_TYPE_CD,
-                    a18.ATTRIBUTE_NAME  GRD_NAME,
-                    a12.OLD_NEW_CD  OLD_NEW_CD,
-                    case when a11.MDL_SFFX_CD like 'VM-%.CPS' then 'Y' else DECODE(a11.VIRT_MDL_FLAG,'*','N') end  VIRT_MDL_FLAG_CD,
-                    sum(a11.MGNL_PRF_MDL_CNT) MGNL_PRF_MDL_CNT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'KRW' THEN a11.GROSS_SALES_AMT END)   GROSS_SALES_KRW_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'KRW' THEN a11.SALES_DEDUCT_AMT END)  SALES_DEDUCT_KRW_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'KRW' THEN a11.NSALES_AMT END)        NSALES_KRW_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'KRW' THEN a11.MGNL_PRF_AMT END)      MGNL_PRF_KRW_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'KRW' THEN a11.OI_AMT END)            OI_KRW_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'USD' THEN a11.GROSS_SALES_AMT END)   GROSS_SALES_USD_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'USD' THEN a11.SALES_DEDUCT_AMT END)  SALES_DEDUCT_USD_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'USD' THEN a11.NSALES_AMT END)        NSALES_USD_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'USD' THEN a11.MGNL_PRF_AMT END)      MGNL_PRF_USD_AMT,
-                    sum(CASE WHEN a11.CURRENCY_CD = 'USD' THEN a11.OI_AMT END)            OI_USD_AMT
-            FROM    NPT_APP.NV_DWW_BEP_MGNL_PRF_MDL_S  a11
-            LEFT OUTER JOIN  NPT_DW_MGR.TB_DWD_SUBSDR_MDL_PERIOD_H  a12
-            ON     (a11.ACCTG_YYYYMM = a12.ACCTG_YYYYMM
-            AND     a11.MDL_SFFX_CD = a12.MDL_SFFX_CD
-            AND     a11.SUBSDR_CD = a12.SUBSDR_CD)
-            LEFT OUTER JOIN  NPT_APP.NV_DWD_02_GRD_CD  a18
-            ON     (a12.GRD_CD = a18.ATTRIBUTE_CD)
-            WHERE  (a11.ACCTG_YYYYMM = '201301'
-            AND     a11.CONSLD_SALES_MDL_FLAG in ('Y', 'N', '*')
-            AND     a11.VRNC_ALC_INCL_EXCL_CD in ('INCL')
-            AND     a11.CURRENCY_CD in ('KRW','USD')
-            AND     A11.DIV_CD IN (SELECT CD_ID FROM npt_rs_mgr.tb_rs_clss_cd_m WHERE cd_clsf_id = 'RANGE_MGN' AND attribute3_value = 'ALL' AND USE_FLAG = 'Y')
-            AND     a11.SCENARIO_TYPE_CD in ('PR1','PR2','PR3','PR4'))
-            GROUP BY a11.ACCTG_YYYYMM ,
-                    a11.SUBSDR_CD,
-                    a11.DIV_CD  ,
-                    a11.ACCU6_LOSS_FLAG  ,
-                    a11.MGNL_PRF_RANGE  ,
-                    a11.OI_RANGE  ,
-                    a11.SCENARIO_TYPE_CD,
-                    a18.ATTRIBUTE_NAME  ,
-                    a12.OLD_NEW_CD  ,
-                    case when a11.MDL_SFFX_CD like 'VM-%.CPS' then 'Y' else DECODE(a11.VIRT_MDL_FLAG,'*','N') end
-            )
+        WITH tempa( basis_yyyymm, subsdr_cd, div_cd, mgnl_prf_type_cd,
+                    mgnl_prf_range_cd, oi_range_cd, scenario_type_cd, grade_name, old_new_cd, virt_mdl_flag_cd,mgnl_prf_mdl_cnt,
+                    gross_sales_krw_amt, sales_deduct_krw_amt, nsales_krw_amt, mgnl_prf_krw_amt, oi_krw_amt,
+                    gross_sales_usd_amt, sales_deduct_usd_amt, nsales_usd_amt, mgnl_prf_usd_amt, oi_usd_amt ) AS
+        (
+        --AC0
+        SELECT  a11.acctg_yyyymm  basis_yyyymm,
+                a11.subsdr_cd  subsdr_cd,
+                a11.div_cd  div_cd,
+                a11.accu6_loss_flag  mgnl_prf_type_cd,
+                a11.mgnl_prf_range  mgnl_prf_range_cd,
+                a11.oi_range  oi_range_cd,
+                a11.scenario_type_cd scenario_type_cd,
+                a18.attribute_name  grd_name,
+                a12.old_new_cd  old_new_cd,
+                CASE WHEN a11.mdl_sffx_cd like 'VM-%.CPS' THEN 'Y' ELSE a11.virt_mdl_flag END  virt_mdl_flag_cd,
+                sum(a11.mgnl_prf_mdl_cnt) mgnl_prf_mdl_cnt,
+                SUM(CASE WHEN a11.currency_cd = 'KRW' THEN a11.gross_sales_amt END)   gross_sales_krw_amt,
+                SUM(CASE WHEN a11.currency_cd = 'KRW' THEN a11.sales_deduct_amt END)  sales_deduct_krw_amt,
+                SUM(CASE WHEN a11.currency_cd = 'KRW' THEN a11.nsales_amt END)        nsales_krw_amt,
+                SUM(CASE WHEN a11.currency_cd = 'KRW' THEN a11.mgnl_prf_amt END)      mgnl_prf_krw_amt,
+                SUM(CASE WHEN a11.currency_cd = 'KRW' THEN a11.oi_amt END)            oi_krw_amt,
+                SUM(CASE WHEN a11.currency_cd = 'USD' THEN a11.gross_sales_amt END)   gross_sales_usd_amt,
+                SUM(CASE WHEN a11.currency_cd = 'USD' THEN a11.sales_deduct_amt END)  sales_deduct_usd_amt,
+                SUM(CASE WHEN a11.currency_cd = 'USD' THEN a11.nsales_amt END)        nsales_usd_amt,
+                SUM(CASE WHEN a11.currency_cd = 'USD' THEN a11.mgnl_prf_amt END)      mgnl_prf_usd_amt,
+                SUM(CASE WHEN a11.currency_cd = 'USD' THEN a11.oi_amt END)            oi_usd_amt
+        FROM    npt_app.nv_dww_bep_mgnl_prf_mdl_s  a11
+        LEFT OUTER JOIN  npt_dw_mgr.tb_dwd_subsdr_mdl_period_h  a12
+        ON     (a11.acctg_yyyymm = a12.acctg_yyyymm
+        AND     a11.mdl_sffx_cd = a12.mdl_sffx_cd
+        AND     a11.subsdr_cd = a12.subsdr_cd)
+        LEFT OUTER JOIN  npt_app.nv_dwd_02_grd_cd  a18
+        ON     (a12.grd_cd = a18.attribute_cd)
+        WHERE  (a11.acctg_yyyymm = '201301'
+        AND     a11.consld_sales_mdl_flag IN ('Y')
+        AND     a11.vrnc_alc_incl_excl_cd IN ('INCL')
+        AND     a11.currency_cd IN ('KRW','USD')
+        AND     a11.scenario_type_cd IN ('AC0', 'PR1', 'PR2', 'PR3', 'PR4')
+        AND     a11.div_cd not IN (SELECT cd_id FROM npt_rs_mgr.tb_rs_clss_cd_m WHERE cd_clsf_id = 'RANGE_MGN' AND attribute3_value = 'ALL' AND use_flag = 'Y'))
+        GROUP BY  a11.acctg_yyyymm  ,
+                a11.subsdr_cd,
+                a11.div_cd  ,
+                a11.accu6_loss_flag  ,
+                a11.mgnl_prf_range  ,
+                a11.oi_range  ,
+                a11.scenario_type_cd,
+                a18.attribute_name  ,
+                a12.old_new_cd  ,
+                  CASE WHEN a11.mdl_sffx_cd like 'VM-%.CPS' THEN 'Y' ELSE a11.virt_mdl_flag END
+        UNION ALL
+        SELECT  a11.acctg_yyyymm  basis_yyyymm,
+                a11.subsdr_cd,
+                a11.div_cd  div_cd,
+                a11.accu6_loss_flag  mgnl_prf_type_cd,
+                a11.mgnl_prf_range  mgnl_prf_range_cd,
+                a11.oi_range  oi_range_cd,
+                a11.scenario_type_cd scenario_type_cd,
+                a18.attribute_name  grd_name,
+                a12.old_new_cd  old_new_cd,
+                CASE WHEN a11.mdl_sffx_cd like 'VM-%.CPS' THEN 'Y' ELSE a11.virt_mdl_flag END  virt_mdl_flag_cd,
+                sum(a11.mgnl_prf_mdl_cnt) mgnl_prf_mdl_cnt,
+                SUM(CASE WHEN a11.currency_cd = 'KRW' THEN a11.gross_sales_amt END)   gross_sales_krw_amt,
+                SUM(CASE WHEN a11.currency_cd = 'KRW' THEN a11.sales_deduct_amt END)  sales_deduct_krw_amt,
+                SUM(CASE WHEN a11.currency_cd = 'KRW' THEN a11.nsales_amt END)        nsales_krw_amt,
+                SUM(CASE WHEN a11.currency_cd = 'KRW' THEN a11.mgnl_prf_amt END)      mgnl_prf_krw_amt,
+                SUM(CASE WHEN a11.currency_cd = 'KRW' THEN a11.oi_amt END)            oi_krw_amt,
+                SUM(CASE WHEN a11.currency_cd = 'USD' THEN a11.gross_sales_amt END)   gross_sales_usd_amt,
+                SUM(CASE WHEN a11.currency_cd = 'USD' THEN a11.sales_deduct_amt END)  sales_deduct_usd_amt,
+                SUM(CASE WHEN a11.currency_cd = 'USD' THEN a11.nsales_amt END)        nsales_usd_amt,
+                SUM(CASE WHEN a11.currency_cd = 'USD' THEN a11.mgnl_prf_amt END)      mgnl_prf_usd_amt,
+                SUM(CASE WHEN a11.currency_cd = 'USD' THEN a11.oi_amt END)            oi_usd_amt
+        FROM    npt_app.nv_dww_bep_mgnl_prf_mdl_s  a11
+        LEFT OUTER JOIN  npt_dw_mgr.tb_dwd_subsdr_mdl_period_h  a12
+        ON     (a11.acctg_yyyymm = a12.acctg_yyyymm
+        AND     a11.mdl_sffx_cd = a12.mdl_sffx_cd
+        AND     a11.subsdr_cd = a12.subsdr_cd)
+        LEFT OUTER JOIN  npt_app.nv_dwd_02_grd_cd  a18
+        ON     (a12.grd_cd = a18.attribute_cd)
+        WHERE  (a11.acctg_yyyymm = '201301'
+        AND     a11.consld_sales_mdl_flag IN ('Y', 'N', '*')
+        AND     a11.vrnc_alc_incl_excl_cd IN ('INCL')
+        AND     a11.currency_cd IN ('KRW','USD')
+        AND     A11.div_cd IN (SELECT cd_id FROM npt_rs_mgr.tb_rs_clss_cd_m WHERE cd_clsf_id = 'RANGE_MGN' AND attribute3_value = 'ALL' AND use_flag = 'Y')
+        AND     a11.scenario_type_cd IN ('AC0', 'PR1', 'PR2', 'PR3', 'PR4'))
+        GROUP BY  a11.acctg_yyyymm  ,
+                a11.subsdr_cd,
+                a11.div_cd  ,
+                a11.accu6_loss_flag  ,
+                a11.mgnl_prf_range  ,
+                a11.oi_range  ,
+                a11.scenario_type_cd,
+                a18.attribute_name  ,
+                a12.old_new_cd  ,
+                CASE WHEN a11.mdl_sffx_cd like 'VM-%.CPS' THEN 'Y' ELSE a11.virt_mdl_flag END
+        UNION ALL
+        /* PR1 */
+        SELECT  a11.acctg_yyyymm  basis_yyyymm,
+                a11.subsdr_cd,
+                a11.div_cd  div_cd,
+                a11.accu6_loss_flag  mgnl_prf_type_cd,
+                a11.mgnl_prf_range  mgnl_prf_range_cd,
+                a11.oi_range  oi_range_cd,
+                a11.scenario_type_cd scenario_type_cd,
+                a18.attribute_name  grd_name,
+                a12.old_new_cd  old_new_cd,
+                CASE WHEN a11.mdl_sffx_cd like 'VM-%.CPS' THEN 'Y' ELSE DECODE(a11.virt_mdl_flag,'*','N') END  virt_mdl_flag_cd,
+                sum(a11.mgnl_prf_mdl_cnt) mgnl_prf_mdl_cnt,
+                SUM(CASE WHEN a11.currency_cd = 'KRW' THEN a11.gross_sales_amt END)   gross_sales_krw_amt,
+                SUM(CASE WHEN a11.currency_cd = 'KRW' THEN a11.sales_deduct_amt END)  sales_deduct_krw_amt,
+                SUM(CASE WHEN a11.currency_cd = 'KRW' THEN a11.nsales_amt END)        nsales_krw_amt,
+                SUM(CASE WHEN a11.currency_cd = 'KRW' THEN a11.mgnl_prf_amt END)      mgnl_prf_krw_amt,
+                SUM(CASE WHEN a11.currency_cd = 'KRW' THEN a11.oi_amt END)            oi_krw_amt,
+                SUM(CASE WHEN a11.currency_cd = 'USD' THEN a11.gross_sales_amt END)   gross_sales_usd_amt,
+                SUM(CASE WHEN a11.currency_cd = 'USD' THEN a11.sales_deduct_amt END)  sales_deduct_usd_amt,
+                SUM(CASE WHEN a11.currency_cd = 'USD' THEN a11.nsales_amt END)        nsales_usd_amt,
+                SUM(CASE WHEN a11.currency_cd = 'USD' THEN a11.mgnl_prf_amt END)      mgnl_prf_usd_amt,
+                SUM(CASE WHEN a11.currency_cd = 'USD' THEN a11.oi_amt END)            oi_usd_amt
+        FROM    npt_app.nv_dww_bep_mgnl_prf_mdl_s  a11
+        LEFT OUTER JOIN  npt_dw_mgr.tb_dwd_subsdr_mdl_period_h  a12
+        ON     (a11.acctg_yyyymm = a12.acctg_yyyymm
+        AND     a11.mdl_sffx_cd = a12.mdl_sffx_cd
+        AND     a11.subsdr_cd = a12.subsdr_cd)
+        LEFT OUTER JOIN  npt_app.nv_dwd_02_grd_cd  a18
+        ON     (a12.grd_cd = a18.attribute_cd)
+        WHERE  (a11.acctg_yyyymm = '201301'
+        AND     a11.consld_sales_mdl_flag IN ('Y')
+        AND     a11.vrnc_alc_incl_excl_cd IN ('INCL')
+        AND     a11.currency_cd IN ('KRW','USD')
+        AND     a11.scenario_type_cd IN ('PR1','PR2','PR3','PR4')
+        AND     a11.div_cd NOT IN (SELECT cd_id FROM npt_rs_mgr.tb_rs_clss_cd_m WHERE cd_clsf_id = 'RANGE_MGN' AND attribute3_value = 'ALL' AND use_flag = 'Y'))
+        GROUP BY a11.acctg_yyyymm ,
+                 a11.subsdr_cd,
+                 a11.div_cd  ,
+                 a11.accu6_loss_flag  ,
+                 a11.mgnl_prf_range  ,
+                 a11.oi_range  ,
+                 a11.scenario_type_cd,
+                 a18.attribute_name  ,
+                 a12.old_new_cd  ,
+                 CASE WHEN a11.mdl_sffx_cd like 'VM-%.CPS' THEN 'Y' ELSE DECODE(a11.virt_mdl_flag,'*','N') END
+        UNION ALL
+        SELECT  a11.acctg_yyyymm  basis_yyyymm,
+                a11.subsdr_cd,
+                a11.div_cd  div_cd,
+                a11.accu6_loss_flag  mgnl_prf_type_cd,
+                a11.mgnl_prf_range  mgnl_prf_range_cd,
+                a11.oi_range  oi_range_cd,
+                a11.scenario_type_cd scenario_type_cd,
+                a18.attribute_name  grd_name,
+                a12.old_new_cd  old_new_cd,
+                CASE WHEN a11.mdl_sffx_cd like 'VM-%.CPS' THEN 'Y' ELSE DECODE(a11.virt_mdl_flag,'*','N') END  virt_mdl_flag_cd,
+                sum(a11.mgnl_prf_mdl_cnt) mgnl_prf_mdl_cnt,
+                SUM(CASE WHEN a11.currency_cd = 'KRW' THEN a11.gross_sales_amt END)   gross_sales_krw_amt,
+                SUM(CASE WHEN a11.currency_cd = 'KRW' THEN a11.sales_deduct_amt END)  sales_deduct_krw_amt,
+                SUM(CASE WHEN a11.currency_cd = 'KRW' THEN a11.nsales_amt END)        nsales_krw_amt,
+                SUM(CASE WHEN a11.currency_cd = 'KRW' THEN a11.mgnl_prf_amt END)      mgnl_prf_krw_amt,
+                SUM(CASE WHEN a11.currency_cd = 'KRW' THEN a11.oi_amt END)            oi_krw_amt,
+                SUM(CASE WHEN a11.currency_cd = 'USD' THEN a11.gross_sales_amt END)   gross_sales_usd_amt,
+                SUM(CASE WHEN a11.currency_cd = 'USD' THEN a11.sales_deduct_amt END)  sales_deduct_usd_amt,
+                SUM(CASE WHEN a11.currency_cd = 'USD' THEN a11.nsales_amt END)        nsales_usd_amt,
+                SUM(CASE WHEN a11.currency_cd = 'USD' THEN a11.mgnl_prf_amt END)      mgnl_prf_usd_amt,
+                SUM(CASE WHEN a11.currency_cd = 'USD' THEN a11.oi_amt END)            oi_usd_amt
+        FROM    npt_app.nv_dww_bep_mgnl_prf_mdl_s  a11
+        LEFT OUTER JOIN  npt_dw_mgr.tb_dwd_subsdr_mdl_period_h  a12
+        ON     (a11.acctg_yyyymm = a12.acctg_yyyymm
+        AND     a11.mdl_sffx_cd = a12.mdl_sffx_cd
+        AND     a11.subsdr_cd = a12.subsdr_cd)
+        LEFT OUTER JOIN  npt_app.nv_dwd_02_grd_cd  a18
+        ON     (a12.grd_cd = a18.attribute_cd)
+        WHERE  (a11.acctg_yyyymm = '201301'
+        AND     a11.consld_sales_mdl_flag IN ('Y', 'N', '*')
+        AND     a11.vrnc_alc_incl_excl_cd IN ('INCL')
+        AND     a11.currency_cd IN ('KRW','USD')
+        AND     A11.div_cd IN (SELECT cd_id FROM npt_rs_mgr.tb_rs_clss_cd_m WHERE cd_clsf_id = 'RANGE_MGN' AND attribute3_value = 'ALL' AND USE_FLAG = 'Y')
+        AND     a11.scenario_type_cd IN ('PR1','PR2','PR3','PR4'))
+        GROUP BY a11.acctg_yyyymm ,
+                 a11.subsdr_cd,
+                 a11.div_cd  ,
+                 a11.accu6_loss_flag  ,
+                 a11.mgnl_prf_range  ,
+                 a11.oi_range  ,
+                 a11.scenario_type_cd,
+                 a18.attribute_name  ,
+                 a12.old_new_cd  ,
+                 CASE WHEN a11.mdl_sffx_cd like 'VM-%.CPS' THEN 'Y' ELSE DECODE(a11.virt_mdl_flag,'*','N') END
+        )
 
         /*---------------------------------------------------
            한계이익 구간별 매출액,한계이익,마케팅비용 생성
         ----------------------------------------------------*/
-SELECT '1550'                                                          AS PRCS_SEQ                                 
-      ,'ARES'                                                          AS RS_MODULE_CD                             
-      ,'BEP_SMART'                                                     AS RS_CLSF_ID                               
-      ,'BEP_SMART_SUBSDR'                                                  AS RS_TYPE_CD                               
-      ,'BEP_SMART_SUBSDR'                                                  AS RS_TYPE_NAME                             
-      ,mgnl.div_cd                                                 AS DIV_CD                                   
-      ,mgnl.BASIS_YYYYMM                                                  AS BASE_YYYYMMDD                            
-      ,NULL                                                            AS CD_DESC                                  
-      ,NULL                                                            AS SORT_SEQ                                 
-      ,'Y'                                                             AS USE_FLAG ,                                
-                    mgnl.BASIS_YYYYMM AS ATTRIBUTE1,
-                    mgnl.scenario_type_cd AS ATTRIBUTE2,
-                    mgnl.SUBSDR_CD AS ATTRIBUTE3,
-                    mgnl.div_cd AS ATTRIBUTE4,
-                    'N'         AS ATTRIBUTE5,
-                     c2.cd_id   AS ATTRIBUTE6,
-                    case when c2.cd_id in ('SALE','MGN_PROFIT','MODEL_COUNT') then
-                        case mgnl.MGNL_PRF_RANGE_CD
-                           when '30%~'    then 'MARGINAL_PF_30'
-                           when '20%~30%' then 'MARGINAL_PF_20_30'
-                           when '13%~20%' then 'MARGINAL_PF_10_20'
-                           when '10%~13%' then 'MARGINAL_PF_10_20'
-                           when '5%~10%'  then 'MARGINAL_PF_5_10'
-                           when '0%~5%'   then 'MARGINAL_PF_0_5'
-                           when '~0%'      then 'MARGINAL_PF_(-)'
-                           else mgnl.MGNL_PRF_RANGE_CD
-                         end
-                    end as ATTRIBUTE7,
-                    MIN(
-                    CASE mgnl.scenario_type_cd
-                         WHEN 'AC0' THEN basis_yyyymm
-                         WHEN 'PR1' THEN to_char(add_months(to_date(basis_yyyymm,'YYYYMM'), 1), 'YYYYMM')
-                         WHEN 'PR2' THEN to_char(add_months(to_date(basis_yyyymm,'YYYYMM'), 2), 'YYYYMM')
-                         WHEN 'PR3' THEN to_char(add_months(to_date(basis_yyyymm,'YYYYMM'), 3), 'YYYYMM')
-                         WHEN 'PR4' THEN to_char(add_months(to_date(basis_yyyymm,'YYYYMM'), 4), 'YYYYMM')
-                    END) as ATTRIBUTE8,
-                    sum(case when c2.cd_id = 'SALE'  then
-                              mgnl.NSALES_KRW_AMT
-                         when c2.cd_id = 'COI' then
-                              mgnl.OI_KRW_AMT
-                         when c2.cd_id = 'MGN_PROFIT' then
-                              mgnl.MGNL_PRF_KRW_AMT
-                         when c2.cd_id = 'MODEL_COUNT' then
-                              mgnl.MGNL_PRF_MDL_CNT
-                         else 0
-                    end) as ATTRIBUTE9,
-                    sum(case when c2.cd_id = 'SALE'  then
-                              mgnl.NSALES_USD_AMT
-                         when c2.cd_id = 'COI' then
-                              mgnl.OI_USD_AMT
-                         when c2.cd_id = 'MGN_PROFIT' then
-                              mgnl.MGNL_PRF_USD_AMT
-                         when c2.cd_id = 'MODEL_COUNT' then
-                              mgnl.MGNL_PRF_MDL_CNT
-                         else 0
-                    end) as ATTRIBUTE10,
-                    null AS ATTRIBUTE11,
-                    null AS ATTRIBUTE12
-            from   TEMPA mgnl
-                  ,npt_rs_mgr.tb_rs_clss_cd_m C2
-            WHERE  C2.cd_clsf_id = 'KPI_TYPE'
-            --AND    C2.cd_id in ('SALE','COI','MGN_PROFIT')
-            AND    C2.cd_id in ('SALE','MGN_PROFIT','MODEL_COUNT') -- 한게이익 구간대별 매출, 한계이익
-            AND    mgnl.VIRT_MDL_FLAG_CD = 'N'
-            GROUP BY
-                  mgnl.BASIS_YYYYMM,
-                  mgnl.scenario_type_cd,
-                  mgnl.SUBSDR_CD,
-                  mgnl.div_cd,
-                  c2.cd_id,
-                  case when c2.cd_id in ('SALE','MGN_PROFIT','MODEL_COUNT') then
-                      case mgnl.MGNL_PRF_RANGE_CD
-                         when '30%~'    then 'MARGINAL_PF_30'
-                         when '20%~30%' then 'MARGINAL_PF_20_30'
-                         when '13%~20%' then 'MARGINAL_PF_10_20'
-                         when '10%~13%' then 'MARGINAL_PF_10_20'
-                         when '5%~10%'  then 'MARGINAL_PF_5_10'
-                         when '0%~5%'   then 'MARGINAL_PF_0_5'
-                         when '~0%'      then 'MARGINAL_PF_(-)'
-                         else mgnl.MGNL_PRF_RANGE_CD
-                       end
-                  end
+        SELECT '1550'                                                          AS prcs_seq
+              ,'ARES'                                                          AS rs_module_cd
+              ,'BEP_SMART'                                                     AS rs_clsf_id
+              ,'BEP_SMART_SUBSDR'                                              AS rs_type_cd
+              ,'BEP_SMART_SUBSDR'                                              AS rs_type_name
+              ,mgnl.div_cd                                                     AS div_cd
+              ,mgnl.basis_yyyymm                                               AS base_yyyymmdd
+              ,NULL                                                            AS cd_desc
+              ,NULL                                                            AS sort_seq
+              ,'Y'                                                             AS use_flag ,
+               mgnl.basis_yyyymm                                               AS attribute1,
+               mgnl.scenario_type_cd                                           AS attribute2,
+               mgnl.subsdr_cd                                                  AS attribute3,
+               mgnl.div_cd                                                     AS attribute4,
+               'N'                                                             AS attribute5,
+                c2.cd_id                                                       AS attribute6,
+               CASE WHEN c2.cd_id IN ('SALE','MGN_PROFIT','MODEL_COUNT') THEN
+                   CASE mgnl.mgnl_prf_range_cd
+                      WHEN '30%~'    THEN 'MARGINAL_PF_30'
+                      WHEN '20%~30%' THEN 'MARGINAL_PF_20_30'
+                      WHEN '13%~20%' THEN 'MARGINAL_PF_10_20'
+                      WHEN '10%~13%' THEN 'MARGINAL_PF_10_20'
+                      WHEN '5%~10%'  THEN 'MARGINAL_PF_5_10'
+                      WHEN '0%~5%'   THEN 'MARGINAL_PF_0_5'
+                      WHEN '~0%'      THEN 'MARGINAL_PF_(-)'
+                      ELSE mgnl.mgnl_prf_range_cd
+                    END
+               END                                                             AS attribute7,
+               MIN(
+               CASE mgnl.scenario_type_cd
+                    WHEN 'AC0' THEN basis_yyyymm
+                    WHEN 'PR1' THEN to_char(add_months(to_date(basis_yyyymm,'YYYYMM'), 1), 'YYYYMM')
+                    WHEN 'PR2' THEN to_char(add_months(to_date(basis_yyyymm,'YYYYMM'), 2), 'YYYYMM')
+                    WHEN 'PR3' THEN to_char(add_months(to_date(basis_yyyymm,'YYYYMM'), 3), 'YYYYMM')
+                    WHEN 'PR4' THEN to_char(add_months(to_date(basis_yyyymm,'YYYYMM'), 4), 'YYYYMM')
+               END)                                                            AS attribute8,
+               SUM(CASE WHEN c2.cd_id = 'SALE'  THEN
+                         mgnl.nsales_krw_amt
+                    WHEN c2.cd_id = 'COI' THEN
+                         mgnl.oi_krw_amt
+                    WHEN c2.cd_id = 'MGN_PROFIT' THEN
+                         mgnl.mgnl_prf_krw_amt
+                    WHEN c2.cd_id = 'MODEL_COUNT' THEN
+                         mgnl.mgnl_prf_mdl_cnt
+                    ELSE 0
+               END)                                                            AS attribute9,
+               SUM(CASE WHEN c2.cd_id = 'SALE'  THEN
+                         mgnl.nsales_usd_amt
+                    WHEN c2.cd_id = 'COI' THEN
+                         mgnl.oi_usd_amt
+                    WHEN c2.cd_id = 'MGN_PROFIT' THEN
+                         mgnl.mgnl_prf_usd_amt
+                    WHEN c2.cd_id = 'MODEL_COUNT' THEN
+                         mgnl.mgnl_prf_mdl_cnt
+                    ELSE 0
+               END)                                                            AS attribute10,
+               NULL                                                            AS attribute11,
+               NULL                                                            AS attribute12
+       FROM   tempa mgnl
+             ,npt_rs_mgr.tb_rs_clss_cd_m C2
+       WHERE  C2.cd_clsf_id = 'KPI_TYPE'
+       --AND    C2.cd_id IN ('SALE','COI','MGN_PROFIT')
+       AND    C2.cd_id IN ('SALE','MGN_PROFIT','MODEL_COUNT') -- 한게이익 구간대별 매출, 한계이익
+       AND    mgnl.virt_mdl_flag_cd = 'N'
+       GROUP BY
+             mgnl.basis_yyyymm,
+             mgnl.scenario_type_cd,
+             mgnl.subsdr_cd,
+             mgnl.div_cd,
+             c2.cd_id,
+             CASE WHEN c2.cd_id IN ('SALE','MGN_PROFIT','MODEL_COUNT') THEN
+                 CASE mgnl.mgnl_prf_range_cd
+                    WHEN '30%~'    THEN 'MARGINAL_PF_30'
+                    WHEN '20%~30%' THEN 'MARGINAL_PF_20_30'
+                    WHEN '13%~20%' THEN 'MARGINAL_PF_10_20'
+                    WHEN '10%~13%' THEN 'MARGINAL_PF_10_20'
+                    WHEN '5%~10%'  THEN 'MARGINAL_PF_5_10'
+                    WHEN '0%~5%'   THEN 'MARGINAL_PF_0_5'
+                    WHEN '~0%'      THEN 'MARGINAL_PF_(-)'
+                    ELSE mgnl.mgnl_prf_range_cd
+                  END
+             END
 
         /*---------------------------------------------------
            영업이익 구간별 매출액,한계이익
         ----------------------------------------------------*/
-            union all
+        UNION ALL
 
-
-SELECT '1550'                                                          AS PRCS_SEQ                                 
-      ,'ARES'                                                          AS RS_MODULE_CD                             
-      ,'BEP_SMART'                                                     AS RS_CLSF_ID                               
-      ,'BEP_SMART_SUBSDR'                                                  AS RS_TYPE_CD                               
-      ,'BEP_SMART_SUBSDR'                                                  AS RS_TYPE_NAME                             
-      ,mgnl.div_cd                                                 AS DIV_CD                                   
-      ,mgnl.BASIS_YYYYMM                                                  AS BASE_YYYYMMDD                            
-      ,NULL                                                            AS CD_DESC                                  
-      ,NULL                                                            AS SORT_SEQ                                 
-      ,'Y'                                                             AS USE_FLAG ,                                
-                    mgnl.BASIS_YYYYMM,
-                    mgnl.scenario_type_cd SCENARIO_CODE,
-                    mgnl.SUBSDR_CD,
-                    mgnl.div_cd DIVISION_CODE,
-                    'N'         AS MANUAL_ADJUST_FLAG,
-                     c2.cd_id   AS KPI_TYPE_CODE,
-                    case when c2.cd_id in ('SALE','COI','MGN_PROFIT','MODEL_COUNT') then
-                        case mgnl.OI_RANGE_CD
-                           when '10%~'     then 'COI_10'
-                           when '0%~10%'   then 'COI_0_10'
-                           when '-5%~0%'   then 'COI_-5_0'
-                           when '-10%~-5%' then 'COI_-10_-5'
-                           when '-15%~-10%'  then 'COI_-15_-10'
-                           when '~-15%'      then 'COI_-15'
-                           else null
-                        end
-                    end as CATEGORY_DETAIL_CODE,
-                    MIN(
-                    CASE mgnl.scenario_type_cd
-                         WHEN 'AC0' THEN basis_yyyymm
-                         WHEN 'PR1' THEN to_char(add_months(to_date(basis_yyyymm,'YYYYMM'), 1), 'YYYYMM')
-                         WHEN 'PR2' THEN to_char(add_months(to_date(basis_yyyymm,'YYYYMM'), 2), 'YYYYMM')
-                         WHEN 'PR3' THEN to_char(add_months(to_date(basis_yyyymm,'YYYYMM'), 3), 'YYYYMM')
-                         WHEN 'PR4' THEN to_char(add_months(to_date(basis_yyyymm,'YYYYMM'), 4), 'YYYYMM')
-                    END) as YYYYMM,
-                    sum(case when c2.cd_id = 'SALE'  then
-                              mgnl.NSALES_KRW_AMT
-                         when c2.cd_id = 'COI' then
-                              mgnl.OI_KRW_AMT
-                         when c2.cd_id = 'MGN_PROFIT' then
-                              mgnl.MGNL_PRF_KRW_AMT
-                         when c2.cd_id = 'MODEL_COUNT' then
-                              mgnl.MGNL_PRF_MDL_CNT
-                         else 0
-                    end) as curr_mon_krw_amount,
-                    sum(case when c2.cd_id = 'SALE'  then
-                              mgnl.NSALES_USD_AMT
-                         when c2.cd_id = 'COI' then
-                              mgnl.OI_USD_AMT
-                         when c2.cd_id = 'MGN_PROFIT' then
-                              mgnl.MGNL_PRF_USD_AMT
-                         when c2.cd_id = 'MODEL_COUNT' then
-                              mgnl.MGNL_PRF_MDL_CNT
-                         else 0
-                    end) as curr_mon_usd_amount,
-                    null accu_mon_krw_amount,
-                    null accu_mon_usd_amount
-            from   TEMPA mgnl
-                  ,npt_rs_mgr.tb_rs_clss_cd_m C2
-            WHERE  C2.cd_clsf_id = 'KPI_TYPE'
-            AND    C2.cd_id in ('SALE','COI','MGN_PROFIT','MODEL_COUNT')
-            AND    mgnl.VIRT_MDL_FLAG_CD = 'N'
-            --AND    mgnl.scenario_type_cd in ('PR2','PR3','PR4')
-            GROUP BY
-                  mgnl.BASIS_YYYYMM,
-                  mgnl.scenario_type_cd,
-                  mgnl.SUBSDR_CD,
-                  mgnl.div_cd,
-                  c2.cd_id,
-                  case when c2.cd_id in ('SALE','COI','MGN_PROFIT','MODEL_COUNT') then
-                      case mgnl.OI_RANGE_CD
-                         when '10%~'     then 'COI_10'
-                         when '0%~10%'   then 'COI_0_10'
-                         when '-5%~0%'   then 'COI_-5_0'
-                         when '-10%~-5%' then 'COI_-10_-5'
-                         when '-15%~-10%'  then 'COI_-15_-10'
-                         when '~-15%'      then 'COI_-15'
-                         else null
-                      end
-                  end
+        SELECT '1550'                                                          AS prcs_seq
+              ,'ARES'                                                          AS rs_module_cd
+              ,'BEP_SMART'                                                     AS rs_clsf_id
+              ,'BEP_SMART_SUBSDR'                                              AS rs_type_cd
+              ,'BEP_SMART_SUBSDR'                                              AS rs_type_name
+              ,mgnl.div_cd                                                     AS div_cd
+              ,mgnl.basis_yyyymm                                               AS base_yyyymmdd
+              ,NULL                                                            AS cd_desc
+              ,NULL                                                            AS sort_seq
+              ,'Y'                                                             AS use_flag ,
+               mgnl.basis_yyyymm,
+               mgnl.scenario_type_cd scenario_code,
+               mgnl.subsdr_cd,
+               mgnl.div_cd division_code,
+               'N'         AS manual_adjust_flag,
+                c2.cd_id   AS kpi_type_code,
+               CASE WHEN c2.cd_id IN ('SALE','COI','MGN_PROFIT','MODEL_COUNT') THEN
+                   CASE mgnl.oi_range_cd
+                      WHEN '10%~'     THEN 'COI_10'
+                      WHEN '0%~10%'   THEN 'COI_0_10'
+                      WHEN '-5%~0%'   THEN 'COI_-5_0'
+                      WHEN '-10%~-5%' THEN 'COI_-10_-5'
+                      WHEN '-15%~-10%'  THEN 'COI_-15_-10'
+                      WHEN '~-15%'      THEN 'COI_-15'
+                      ELSE NULL
+                   END
+               END AS category_detail_code,
+               MIN(
+               CASE mgnl.scenario_type_cd
+                    WHEN 'AC0' THEN basis_yyyymm
+                    WHEN 'PR1' THEN to_char(add_months(to_date(basis_yyyymm,'YYYYMM'), 1), 'YYYYMM')
+                    WHEN 'PR2' THEN to_char(add_months(to_date(basis_yyyymm,'YYYYMM'), 2), 'YYYYMM')
+                    WHEN 'PR3' THEN to_char(add_months(to_date(basis_yyyymm,'YYYYMM'), 3), 'YYYYMM')
+                    WHEN 'PR4' THEN to_char(add_months(to_date(basis_yyyymm,'YYYYMM'), 4), 'YYYYMM')
+               END) AS YYYYMM,
+               SUM(CASE WHEN c2.cd_id = 'SALE'  THEN
+                         mgnl.nsales_krw_amt
+                    WHEN c2.cd_id = 'COI' THEN
+                         mgnl.oi_krw_amt
+                    WHEN c2.cd_id = 'MGN_PROFIT' THEN
+                         mgnl.mgnl_prf_krw_amt
+                    WHEN c2.cd_id = 'MODEL_COUNT' THEN
+                         mgnl.mgnl_prf_mdl_cnt
+                    ELSE 0
+               END) AS curr_mon_krw_amount,
+               SUM(CASE WHEN c2.cd_id = 'SALE'  THEN
+                         mgnl.nsales_usd_amt
+                    WHEN c2.cd_id = 'COI' THEN
+                         mgnl.oi_usd_amt
+                    WHEN c2.cd_id = 'MGN_PROFIT' THEN
+                         mgnl.mgnl_prf_usd_amt
+                    WHEN c2.cd_id = 'MODEL_COUNT' THEN
+                         mgnl.mgnl_prf_mdl_cnt
+                    ELSE 0
+               END) AS curr_mon_usd_amount,
+               NULL accu_mon_krw_amount,
+               NULL accu_mon_usd_amount
+       FROM   tempa mgnl
+             ,npt_rs_mgr.tb_rs_clss_cd_m C2
+       WHERE  C2.cd_clsf_id = 'KPI_TYPE'
+       AND    C2.cd_id IN ('SALE','COI','MGN_PROFIT','MODEL_COUNT')
+       AND    mgnl.virt_mdl_flag_cd = 'N'
+       --AND    mgnl.scenario_type_cd IN ('PR2','PR3','PR4')
+       GROUP BY
+             mgnl.basis_yyyymm,
+             mgnl.scenario_type_cd,
+             mgnl.subsdr_cd,
+             mgnl.div_cd,
+             c2.cd_id,
+             CASE WHEN c2.cd_id IN ('SALE','COI','MGN_PROFIT','MODEL_COUNT') THEN
+                 CASE mgnl.oi_range_cd
+                    WHEN '10%~'     THEN 'COI_10'
+                    WHEN '0%~10%'   THEN 'COI_0_10'
+                    WHEN '-5%~0%'   THEN 'COI_-5_0'
+                    WHEN '-10%~-5%' THEN 'COI_-10_-5'
+                    WHEN '-15%~-10%'  THEN 'COI_-15_-10'
+                    WHEN '~-15%'      THEN 'COI_-15'
+                    ELSE NULL
+                 END
+             END

@@ -1,0 +1,993 @@
+#/* 2016-01-04
+#NPT 운영DB (LGNPTP_DW) :  ap72634 / uiop2469!
+#
+#NPT 개발 DB (LGNPTD_DW) : NPT_DW_DEV/!npt2016^^
+
+#계정명 : NPT_RS_ADM
+#패스워드 : !emkkwkr09
+#사용기간 : 2016.1.27(목) - 2016.2.3(수)
+
+################################
+# New Plantopia 운영DB
+################################
+ 
+
+LGNPTP_DW =
+  (DESCRIPTION =
+    (FAILOVER=ON)
+    (ADDRESS_LIST =
+      (ADDRESS = (PROTOCOL = TCP)(HOST = lgedplan-c1-scan.lge.com)(PORT = 3300))
+      (ADDRESS = (PROTOCOL = TCP)(HOST = lgedplan-c1-scan.lge.com)(PORT = 3300))
+    )
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = SV_NPT_DW)
+    )
+  )
+  
+#New Plantopia SM개발DB
+LGNPTD =
+  (DESCRIPTION =
+    (FAILOVER=ON)
+    (ADDRESS_LIST =
+      (ADDRESS = (PROTOCOL = TCP)(HOST = 10.185.49.39)(PORT = 3200))
+      (ADDRESS = (PROTOCOL = TCP)(HOST = 10.185.49.40)(PORT = 3200))
+      (ADDRESS = (PROTOCOL = TCP)(HOST = 10.185.49.41)(PORT = 3200))
+    )
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = LGNPTD)
+    )
+  )
+  
+  
+#New Plantopia SM개발DB/경영분석
+LGNPTD_DW =
+  (DESCRIPTION =
+    (FAILOVER=ON)
+    (ADDRESS_LIST =
+      (ADDRESS = (PROTOCOL = TCP)(HOST = 10.185.49.39)(PORT = 3200))
+      (ADDRESS = (PROTOCOL = TCP)(HOST = 10.185.49.40)(PORT = 3200))
+      (ADDRESS = (PROTOCOL = TCP)(HOST = 10.185.49.41)(PORT = 3200))
+    )
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = SV_NPTD_DW)
+    )
+  )    
+
+WINWIN =
+        (DESCRIPTION= 
+               (ADDRESS=(PROTOCOL=tcp)(HOST=XISTERPINO.lgcns.com)(PORT=1521))
+         (CONNECT_DATA=
+              (SERVICE_NAME=WINWIN)
+              (INSTANCE_NAME=WINWIN)
+              )
+     )
+
+ #( DESCRIPTION= 
+       #     (ADDRESS=(PROTOCOL=tcp)(HOST=LGISDEV01P)(PORT=1528))
+       #     (CONNECT_DATA=(SID=QUICK))
+       # )
+
+QUICK=   (DESCRIPTION=
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=lgisdev01.lgis.com)(PORT=1528))
+
+                (CONNECT_DATA=(SID=QUICK))
+
+            )
+
+ORACRP = (DESCRIPTION=
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=lgisdev01.lgis.com)(PORT=1526))
+
+                (CONNECT_DATA=(SID=ORACRP))
+
+          )
+
+OBST=
+            (DESCRIPTION=
+                    (ADDRESS=(PROTOCOL=tcp)(HOST=erpscdb.lgcns.com)(PORT=1529))
+                (CONNECT_DATA=
+                    (SID=OBST)
+                )
+            )
+
+VACCINE=(DESCRIPTION=
+              (ADDRESS=(PROTOCOL=tcp)(HOST=165.244.241.144)(PORT=1533))
+           (CONNECT_DATA=
+              (SID=VACCINE))
+         )
+         
+
+
+
+#ORAPROD = (DESCRIPTION_LIST =
+#           (DESCRIPTION=
+#                (ADDRESS=(PROTOCOL=tcp)(HOST=giserp03)(PORT=1522))
+#                (CONNECT_DATA=(SID=ORAPROD))
+#            )    
+#          )
+
+ORAPROD=
+        (DESCRIPTION= 
+                (ADDRESS=(PROTOCOL=tcp)(HOST=LSISERPDB11)(PORT=1522))
+            (CONNECT_DATA=
+                (SID=ORAPROD)
+            )
+        )
+          
+ESIS=
+
+        (DESCRIPTION= 
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.244.241.135)(PORT=1530))
+
+            (CONNECT_DATA=
+
+                (SID=ESIS)
+
+            )
+
+        )
+
+ERPDEV4=
+
+        (DESCRIPTION=
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=lgisdev01.lgis.com)(PORT=1619))
+
+            (CONNECT_DATA=
+
+                (SID=ERPDEV4)
+
+            )
+
+        )
+        
+        
+        
+ 
+#ORACRP = (DESCRIPTION=
+#                 (ADDRESS=(PROTOCOL=tcp)(HOST=lgisdev01)(PORT=1526))
+#                 (CONNECT_DATA=(SID=ORACRP))
+#                  )
+
+GISPROD = (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.244.241.132)(PORT=1524))
+                (CONNECT_DATA=(SID=GISPROD))
+          )
+Rep60_LGCNS-1EFE03BB0,Rep60_LGCNS-1EFE03BB0.world=(ADDRESS=(PROTOCOL=tcp)(HOST=LGCNS-1EFE03BB0)(PORT=1949))
+
+
+#R12용
+ERPSC= (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=erpscdb.lgcns.com)(PORT=1601))
+            (CONNECT_DATA=
+                (SID=ERPSC)
+            )
+        )
+
+
+ORATST=
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=erpscdb.lgcns.com)(PORT=1531))
+            (CONNECT_DATA=
+                (SID=ORATST)
+            )
+        )
+        
+        
+VIS3=
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=erpscdb.lgcns.com)(PORT=1541))
+            (CONNECT_DATA=
+                (SID=VIS3)
+            )
+        )
+        
+VISION = 
+       (ADDRESS_LIST = 
+           (ADDRESS= (PROTOCOL= IPC)(KEY = EXTPROCVISION))
+           (ADDRESS= (PROTOCOL= TCP)(Host= lgisdev01.lgis.com)(Port= 1620))
+        )         
+
+ERPCRP1=
+
+        (DESCRIPTION=
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.244.241.139)(PORT=1551))
+
+            (CONNECT_DATA=
+
+                (SID=ERPCRP1)
+
+            )
+
+        )
+
+ERPCRP2=
+
+            (DESCRIPTION=
+
+                    (ADDRESS=(PROTOCOL=tcp)(HOST=liddhrd1.lsis.biz)(PORT=1561))
+
+                (CONNECT_DATA=
+
+                    (SID=ERPCRP2)
+
+                )
+
+   )
+
+ERPDEV1=
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.244.241.148)(PORT=1609))
+            (CONNECT_DATA=
+                (SID=ERPDEV1)
+            )
+        )   
+
+INTG1=
+
+        (DESCRIPTION=
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=liddhrd1.lsis.biz)(PORT=1571))
+
+            (CONNECT_DATA=
+
+                (SID=INTG1)
+
+            )
+
+     )
+
+ERPDEV2=
+
+        (DESCRIPTION=
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=liddhrd1.lsis.biz)(PORT=1619))
+
+            (CONNECT_DATA=
+
+                (SID=ERPDEV2)
+
+            )
+
+        )
+INTG2=
+
+        (DESCRIPTION=
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=liddhrd1.lsis.biz)(PORT=1581))
+
+            (CONNECT_DATA=
+
+                (SID=INTG2)
+
+            )
+
+        )
+
+ERPUAT =
+
+        (DESCRIPTION=
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=giserp06.lgis.com)(PORT=1612))
+
+            (CONNECT_DATA=
+
+                (SID=ERPUAT)
+
+            )
+
+        )
+ERPPROD=
+
+        (DESCRIPTION=
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.244.241.132)(PORT=1601))
+
+            (CONNECT_DATA=
+
+                (SID=ERPPROD)
+
+            )
+
+        )
+ERPDEV3=
+
+        (DESCRIPTION=
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=lgisdev01.lgis.com)(PORT=1609))
+
+            (CONNECT_DATA=
+
+                (SID=ERPDEV3)
+
+            )
+
+        )
+
+ERPDEV4=
+
+        (DESCRIPTION=
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=lgisdev01.lgis.com)(PORT=1619))
+
+            (CONNECT_DATA=
+
+                (SID=ERPDEV4)
+
+            )
+
+        )
+
+QUEEN =
+
+        (DESCRIPTION=
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.244.241.139)(PORT=1599))
+
+            (CONNECT_DATA=
+
+                (SID=QUEEN)
+
+            )
+
+        )
+
+MERPUAT=
+
+        (DESCRIPTION=
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=lsmerpdb01.lsmetal.co.kr)(PORT=1547))
+
+            (CONNECT_DATA=
+
+                (SID=MERPUAT)
+
+            )
+
+        )
+        
+MERPDEV=
+
+          (DESCRIPTION=
+
+                  (ADDRESS=(PROTOCOL=tcp)(HOST=lgisdev01.lgis.com)(PORT=1537))
+
+              (CONNECT_DATA=
+
+                  (SID=MERPDEV)
+
+              )
+
+           )
+MERPPROD=
+
+        (DESCRIPTION=
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=lsmerpdb01.lsmetal.biz)(PORT=1527))
+
+            (CONNECT_DATA=
+
+                (SID=MERPPROD)
+
+            )
+
+        )
+GREENTEA=
+
+        (DESCRIPTION= 
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=LGISDEV01)(PORT=1526))
+
+            (CONNECT_DATA=
+
+                (SID=GREENTEA)
+
+            )
+
+        )
+
+EXTPROC_CONNECTION_DATA =
+  (DESCRIPTION =
+    (ADDRESS_LIST =
+      (ADDRESS = (PROTOCOL = TCP)(HOST = lgcns-ttjb086eo)(PORT = 1521))
+    )
+    (CONNECT_DATA =
+      (SERVICE_NAME = PLSExtProc)
+    )
+  )           
+
+
+
+
+
+crp2=
+
+        (DESCRIPTION=
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=keu00eedev41.depkeu.go.id)(PORT=1521))
+
+            (CONNECT_DATA=
+
+                (SID=crp2)
+
+)
+
+        )
+
+
+
+crp3=
+
+        (DESCRIPTION=
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=keu00eedev43.depkeu.go.id)(PORT=1524))
+
+            (CONNECT_DATA=
+
+                (SID=crp3)
+
+            )
+
+        )
+
+
+        dev=
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=keu00eedev41.depkeu.go.id)(PORT=1525))
+            (CONNECT_DATA=
+                (SID=dev)
+            )
+        )
+
+
+XE =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = 127.0.0.1)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = XE)
+    )
+  )
+
+
+#EEU Test Lab 
+DVIS2=
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.31.47)(PORT=1522))
+            (CONNECT_DATA=
+                (SID=DVIS2)
+            )
+        )     
+
+DOCTOR=
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=lgisdev01.lgis.com)(PORT=1619))
+            (CONNECT_DATA=
+                (SID=DOCTOR)
+            )
+        )
+
+
+
+
+
+
+GISSSFA0 =
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.100.146)(PORT=1433))
+            (CONNECT_DATA=
+                (SID=GISSSFA0)
+            )
+        )
+        
+webops = 
+        (DESCRIPTION=
+					(ADDRESS=(PROTOCOL=tcp)(HOST=165.243.100.146)(PORT=1433))
+					(CONNECT_DATA=
+					(SERVER = DEDICATED)
+					(SID = webops)
+					)
+					(HS = OK)
+					)		
+					
+GREENTEA=
+				 (DESCRIPTION= 
+           (ADDRESS=(PROTOCOL=tcp)(HOST=lgisdev01)(PORT=1526))
+           (CONNECT_DATA= (SID=GREENTEA))
+		     )
+
+GISPROD = (DESCRIPTION=
+           	(ADDRESS=(PROTOCOL=tcp)(HOST=165.244.241.135)(PORT=1524))
+   	        (CONNECT_DATA=(SID=GISPROD))
+	         )
+# 
+# 국내
+
+GSICRP=       
+
+        (DESCRIPTION=
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1551))
+
+            (CONNECT_DATA=(SID=GSICRP))
+
+        ) 
+
+# 중국
+
+GSICRPCN=       
+
+        (DESCRIPTION=
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1552))
+
+            (CONNECT_DATA=(SID=GSICRP))
+
+        )  
+
+# 두바이        
+
+GSICRPAE=       
+
+        (DESCRIPTION=
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1553))
+
+            (CONNECT_DATA=(SID=GSICRP))
+
+        )  
+
+# 유럽(네델란드)        
+
+GSICRPNL=       
+
+        (DESCRIPTION=
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1554))
+
+            (CONNECT_DATA=(SID=GSICRP))
+
+        )  
+
+# 미국       
+
+GSICRPUS=       
+
+        (DESCRIPTION=
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1555))
+
+            (CONNECT_DATA=(SID=GSICRP))
+
+        )    
+
+# 국내
+GSIDEV=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1561))
+            (CONNECT_DATA=(SID=GSIDEV))
+        ) 
+# 중국
+GSIDEVCN=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1562))
+            (CONNECT_DATA=(SID=GSIDEV))
+        )  
+# 두바이        
+GSIDEVAE=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1563))
+            (CONNECT_DATA=(SID=GSIDEV))
+        )  
+# 유럽(네델란드)        
+GSIDEVNL=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1564))
+            (CONNECT_DATA=(SID=GSIDEV))
+        )  
+# 미국       
+GSIDEVUS=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1565))
+            (CONNECT_DATA=(SID=GSIDEV))
+        )        
+#----------------------------------------------------------------------------
+# CRP 2차 
+#----------------------------------------------------------------------------
+# 국내
+GSICRP2=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1571))
+            (CONNECT_DATA=(SID=GSICRP2))
+        ) 
+# 중국
+GSICRP2CN=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1572))
+            (CONNECT_DATA=(SID=GSICRP2))
+        )  
+# 두바이        
+GSICRP2AE=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1573))
+            (CONNECT_DATA=(SID=GSICRP2))
+        )  
+# 유럽(네델란드)        
+GSICRP2NL=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1574))
+            (CONNECT_DATA=(SID=GSICRP2))
+        )  
+# 미국       
+GSICRP2US=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1575))
+            (CONNECT_DATA=(SID=GSICRP2))
+        )        
+GSIDEV2=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1581))
+            (CONNECT_DATA=(SID=GSIDEV2))
+        ) 
+# 중국
+GSIDEV2CN=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1582))
+            (CONNECT_DATA=(SID=GSIDEV2))
+        )  
+# 두바이        
+GSIDEV2AE=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1583))
+            (CONNECT_DATA=(SID=GSIDEV2))
+        )  
+# 유럽(네델란드)        
+GSIDEV2NL=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1584))
+            (CONNECT_DATA=(SID=GSIDEV2))
+        )  
+# 미국       
+GSIDEV2US=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1585))
+            (CONNECT_DATA=(SID=GSIDEV2))
+        )        
+	      
+
+# 국내
+
+QUEEN=
+
+        (DESCRIPTION= 
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=lgisdev01.lgis.com)(PORT=1599))
+
+            (CONNECT_DATA=
+
+                (SID=QUEEN)
+
+            )
+
+        )
+
+# 중국
+
+QUEENCN=
+
+        (DESCRIPTION= 
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=lgisdev01.lgis.com)(PORT=1592))
+
+            (CONNECT_DATA=
+
+                (SID=QUEEN)
+
+            )
+
+        )
+
+# 두바이        
+
+QUEENAE=
+
+        (DESCRIPTION= 
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=lgisdev01.lgis.com)(PORT=1593))
+
+            (CONNECT_DATA=
+
+                (SID=QUEEN)
+
+            )
+
+        )
+
+# 유럽(네델란드)        
+
+QUEENNL=
+
+        (DESCRIPTION= 
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=lgisdev01.lgis.com)(PORT=1594))
+
+            (CONNECT_DATA=
+
+                (SID=QUEEN)
+
+            )
+
+        )
+
+# 미국       
+
+QUEENUS=
+
+        (DESCRIPTION= 
+
+                (ADDRESS=(PROTOCOL=tcp)(HOST=lgisdev01.lgis.com)(PORT=1595))
+
+            (CONNECT_DATA=
+
+                (SID=QUEEN)
+
+            )
+
+        )
+
+# 국내
+GSICONV=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1591))
+            (CONNECT_DATA=(SID=GSICONV))
+        ) 
+# 중국
+GSICONVCN=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1592))
+            (CONNECT_DATA=(SID=GSICONV))
+        )  
+# 두바이        
+GSICONVAE=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1593))
+            (CONNECT_DATA=(SID=GSICONV))
+        )  
+# 유럽(네델란드)        
+GSICONVNL=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1594))
+            (CONNECT_DATA=(SID=GSICONV))
+        )  
+# 미국       
+GSICONVUS=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1585))
+            (CONNECT_DATA=(SID=GSICONV))
+        )        
+
+# 국내
+GSIINTG=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1541))
+            (CONNECT_DATA=(SID=GSIINTG))
+        ) 
+# 중국
+GSIINTGCN=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1542))
+            (CONNECT_DATA=(SID=GSIINTG))
+        )  
+# 두바이        
+GSIINTGAE=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1543))
+            (CONNECT_DATA=(SID=GSIINTG))
+        )  
+# 유럽(네델란드)        
+GSIINTGNL=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1544))
+            (CONNECT_DATA=(SID=GSIINTG))
+        )  
+# 미국       
+GSIINTGUS=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1545))
+            (CONNECT_DATA=(SID=GSIINTG))
+        )        
+
+# 국내
+GSICONV2=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1531))
+            (CONNECT_DATA=(SID=GSICONV2))
+        ) 
+# 중국
+GSICONV2CN=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1532))
+            (CONNECT_DATA=(SID=GSICONV2))
+        )  
+# 두바이        
+GSICONV2AE=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1533))
+            (CONNECT_DATA=(SID=GSICONV2))
+        )  
+# 유럽(네델란드)        
+GSICONV2NL=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1534))
+            (CONNECT_DATA=(SID=GSICONV2))
+        )  
+# 미국       
+GSICONV2US=       
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=165.243.101.178)(PORT=1535))
+           (CONNECT_DATA=(SID=GSICONV2))
+        )        
+ 
+ 
+ # 국내
+DOCTOR=
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=lgisdev01)(PORT=1619))
+            (CONNECT_DATA=
+                (SID=DOCTOR)
+            )
+        )
+# 중국
+DOCTORCN=
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=lgisdev01)(PORT=1618))
+            (CONNECT_DATA=
+                (SID=DOCTOR)
+            )
+        )
+# 두바이
+DOCTORAE=
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=lgisdev01)(PORT=1617))
+            (CONNECT_DATA=
+                (SID=DOCTOR)
+            )
+        )
+# 유럽(네델란드)
+DOCTORNL=
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=lgisdev01)(PORT=1616))
+            (CONNECT_DATA=
+                (SID=DOCTOR)
+            )
+        )
+# 미국(시카고)
+DOCTORUS=
+        (DESCRIPTION=
+                (ADDRESS=(PROTOCOL=tcp)(HOST=lgisdev01)(PORT=1615))
+            (CONNECT_DATA=
+                (SID=DOCTOR)
+            )
+        )
+
+# LGE_ARES 
+IPTTEST = 
+  (DESCRIPTION = 
+    (ADDRESS_LIST = 
+      (ADDRESS = (PROTOCOL = TCP)(HOST = 156.147.184.221)(PORT = 1521))
+    )
+    (CONNECT_DATA = 
+      (SID = IPTTEST)
+    )
+  )   
+
+IPTPROD1 = 
+  (DESCRIPTION = 
+    (ADDRESS_LIST = 
+      (ADDRESS = (PROTOCOL = TCP)(HOST = 156.147.135.55)(PORT = 1521))      
+    )
+    (CONNECT_DATA = 
+      (SERVICE_NAME = IPTPROD)
+    )
+  )
+
+IPTTEST =
+  (DESCRIPTION =
+    (ADDRESS_LIST =
+      (ADDRESS = (PROTOCOL = TCP)(HOST = 156.147.184.221)(PORT = 1521))
+    )
+    (CONNECT_DATA =
+      (SERVICE_NAME = IPTTEST)
+    )
+  )
+
+################################
+# 8Q 서버(IPTPROD1) / 9Q 서버(IPTPROD2)
+# viewer_ipt/gptmbonly3
+################################
+IPTPROD8Q =
+  (DESCRIPTION =
+    (ADDRESS_LIST =
+        (ADDRESS = (PROTOCOL = TCP)(Host =  156.147.135.55)(Port = 1521))
+    )
+    (CONNECT_DATA = (SID = IPTPROD1))
+
+
+  )
+    
+IPTPROD9Q = 
+  (DESCRIPTION =
+    (ADDRESS_LIST =
+        (ADDRESS = (PROTOCOL = TCP)(Host =  156.147.135.211)(Port = 1521))
+    )
+    (CONNECT_DATA = (SID = IPTPROD2 ))
+  )  
+
+GMESHQD =
+  (DESCRIPTION =
+    (ADDRESS_LIST =
+      (ADDRESS = (PROTOCOL = TCP)(HOST = 10.181.2.85)(PORT = 3300))
+    )
+    (CONNECT_DATA =
+      (SERVICE_NAME = GMESHQD))
+  )
+
+GMESHQP =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = 165.244.250.55)(PORT = 3300))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = 165.244.250.56)(PORT = 3300))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = GMESHQP)
+      (FAILOVER_MODE =
+        (METHOD = BASIC))
+    )
+  )
+
+################################
+# SCM Dashboard 
+# 
+# 서버 : LGEDCON4
+# SID  : SCMDPROD
+# User/Pwd : ETL/etl_000!
+################################
+SCMDPROD =
+  (DESCRIPTION =
+     (ADDRESS = (PROTOCOL = TCP)(HOST = 165.243.166.230)(PORT = 3004))
+     (CONNECT_DATA = (SID = SCMDPROD))
+  )         
+
+# PERSONAL
+ORCL =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = sejiwon-PC)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = orcl)
+    )
+  )
+
+FEDORA =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = otobashi.ipdisk.co.kr)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = orcl)
+    )
+  )
+
+#FEDORA =
+#  (DESCRIPTION =
+#    (ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.219.104)(PORT = 1521))
+#    (CONNECT_DATA =
+#      (SERVER = DEDICATED)
+#      (SERVICE_NAME = orcl)
+#    )
+#  )
+  
