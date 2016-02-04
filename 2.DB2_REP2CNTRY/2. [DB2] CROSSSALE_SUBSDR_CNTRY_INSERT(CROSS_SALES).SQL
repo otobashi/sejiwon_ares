@@ -1,4 +1,4 @@
-CREATE OR REPLACE PROCEDURE ETL_IDW.SP_CD_RES_CAT_PROD_MMGN (
+CREATE OR REPLACE PROCEDURE ETL_IDW.SP_CD_RES_CAT_CROSS_SALE (
     IN p_yyyymm VARCHAR(6),
     IN p_category VARCHAR(30) )
   DYNAMIC RESULT SETS 1
@@ -12,8 +12,8 @@ CREATE OR REPLACE PROCEDURE ETL_IDW.SP_CD_RES_CAT_PROD_MMGN (
 BEGIN
   /********************************************************************************************/
   /* 1.프 로 젝 트 : ARES                                                                     */
-  /* 2.실 행 방 법 : CALL SP_CD_RES_CAT_PROD_MMGN('201301','BEP_SMART_PROD_MMGN')             */
-  /* 3.프로그램 ID : SP_CD_RES_CAT_PROD_MMGN                                                  */
+  /* 2.실 행 방 법 : CALL SP_CD_RES_CAT_CROSS_SALE('201301','BEP_SMART_CROSS')                */
+  /* 3.프로그램 ID : SP_CD_RES_CAT_CROSS_SALE                                                 */
   /* 4.설       명 : IPTDW_RES_EXCEL_UPLOAD_DATA에 적재된 ORACLE DATA를                       */
   /*                 IPTDW_RES_KPI_SUBSDR_CNTRY에 DB2 테이블에 적재한다.                      */
   /*                 적재 전 데이타 삭제 요                                                   */
@@ -28,7 +28,7 @@ BEGIN
   /*  1.0      shlee   2016.01.28  최초작성                                                   */
   /*  1.1      shlee   2016.02.01  NOT NULL 대응과 중복제거                                   */
   /********************************************************************************************/
-    DECLARE v_etl_job_no                 VARCHAR(30)   DEFAULT 'SP_CD_RES_CAT_PROD_MMGN';
+    DECLARE v_etl_job_no                 VARCHAR(30)   DEFAULT 'SP_CD_RES_CAT_CROSS_SALE';
     DECLARE v_load_start_timestamp       TIMESTAMP     DEFAULT NULL;
     DECLARE v_serial_no                  VARCHAR(30)   DEFAULT NULL;
     DECLARE v_load_progress_status_code  VARCHAR(10)   DEFAULT NULL;
@@ -117,48 +117,46 @@ BEGIN
       ,LAST_UPD_DATE
       ,LAST_UPD_USR_ID
     )
-    SELECT A.ATTRIBUTE1  AS BASE_YYYYMM
-          ,A.ATTRIBUTE10 AS SCENARIO_TYPE_CD
-          ,A.ATTRIBUTE11 AS DIV_CD
-          ,A.ATTRIBUTE14 AS SUBSDR_CD
+    SELECT A.BASE_YYYYMM  AS BASE_YYYYMM
+          ,'AC0' AS SCENARIO_TYPE_CD
+          ,A.DIV_CD AS DIV_CD
+          ,A.SUBSDR_CD AS SUBSDR_CD
           ,'*' AS AU_CD
           ,'N' AS MANUAL_ADJ_FLAG
           ,B.KPI_CD AS KPI_CD
-          ,'BEP_SMART_PROD_MMGN' AS CAT_CD
-          ,NVL(A.ATTRIBUTE4,'*')  AS SUB_CAT_CD    
-          ,NVL(A.ATTRIBUTE6,'*')  AS ZONE_RNR_CD   
-          ,NVL(A.ATTRIBUTE2,'*')  AS SUBSDR_RNR_CD 
-          ,NVL(A.ATTRIBUTE8,'*')  AS CNTRY_CD      
-          ,A.ATTRIBUTE1 AS APPLY_YYYYMM
-          ,NULL AS CURRM_KRW_AMT
-          ,SUM(TO_NUMBER(A.ATTRIBUTE16)) AS CURRM_USD_AMT
+          ,'BEP_SMART_CROSS' AS CAT_CD
+          ,'*'  AS SUB_CAT_CD    
+          ,'*'  AS ZONE_RNR_CD   
+          ,'*'  AS SUBSDR_RNR_CD 
+          ,'*'  AS CNTRY_CD      
+          ,A.BASE_YYYYMM AS APPLY_YYYYMM
+          ,SUM(CASE B.KPI_CD
+                    WHEN 'CROSS_BORDER' THEN A.SALE_KRW_AMT
+                    WHEN 'CROSS_BU'     THEN A.BU_KRW_AMT END) AS CURRM_KRW_AMT
+          ,SUM(CASE B.KPI_CD
+                    WHEN 'CROSS_BORDER' THEN A.SALE_USD_AMT
+                    WHEN 'CROSS_BU'     THEN A.BU_USD_AMT END) AS CURRM_USD_AMT
           ,NULL AS ACCU_KRW_AMT
           ,NULL AS ACCU_USD_AMT
-          ,MIN(ATTRIBUTE13) AS ATTRIBUTE1_VALUE
-          ,MIN(ATTRIBUTE2) AS ATTRIBUTE2_VALUE
-          ,MIN(ATTRIBUTE4) AS ATTRIBUTE3_VALUE
-          ,MIN(ATTRIBUTE6) AS ATTRIBUTE4_VALUE
-          ,MIN(ATTRIBUTE8) AS ATTRIBUTE5_VALUE
+          ,MIN(A.SUBSDR_NM) AS ATTRIBUTE1_VALUE
+          ,MIN(A.DIV_NM)    AS ATTRIBUTE2_VALUE
+          ,NULL AS ATTRIBUTE3_VALUE
+          ,NULL AS ATTRIBUTE4_VALUE
+          ,NULL AS ATTRIBUTE5_VALUE
           ,CURRENT TIMESTAMP AS CREATION_DATE
           ,'ares' AS CREATION_USR_ID
           ,CURRENT TIMESTAMP AS LAST_UPD_DATE
-          ,'ares' AS LAST_UPD_USR_ID  
-    FROM   IPTDW.IPTDW_RES_EXCEL_UPLOAD_DATA A
+          ,'ares' AS LAST_UPD_USR_ID     
+    FROM   IPTDWIF.IPTDWIF_RES_B2B_CROSSSALE A
           ,(
-           SELECT 'MARGINAL_PF_(-)' AS KPI_CD FROM   SYSIBM.SYSDUMMY1
+           SELECT 'CROSS_BORDER' AS KPI_CD FROM   SYSIBM.SYSDUMMY1 UNION ALL
+           SELECT 'CROSS_BU'     AS KPI_CD FROM   SYSIBM.SYSDUMMY1
            ) B
-    WHERE  A.SEQ = '1550'
-    AND    A.CODE_ID  = p_category
-    AND    A.YYYYMMDD = p_yyyymm
-    GROUP BY A.ATTRIBUTE1
-            ,A.ATTRIBUTE10
-            ,A.ATTRIBUTE11
-            ,A.ATTRIBUTE14
-            ,B.KPI_CD
-            ,NVL(A.ATTRIBUTE4,'*')
-            ,NVL(A.ATTRIBUTE6,'*')
-            ,NVL(A.ATTRIBUTE2,'*')
-            ,NVL(A.ATTRIBUTE8,'*')
+    WHERE  A.BASE_YYYYMM = p_yyyymm
+    GROUP BY A.BASE_YYYYMM
+          ,A.DIV_CD
+          ,A.SUBSDR_CD
+          ,B.KPI_CD
        
     WITH UR;
 

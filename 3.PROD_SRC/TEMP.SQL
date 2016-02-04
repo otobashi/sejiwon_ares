@@ -1,0 +1,57 @@
+-- 1.법인/사업부
+      SELECT CASE C.SEQ
+                  WHEN 1 THEN '법인전체'
+                  WHEN 2 THEN A.DIV_CD END           AS COL_INDEX
+            ,A.KPI_CD             AS KPI_CD
+            ,CASE WHEN B.SEQ = 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
+                  WHEN B.SEQ = 2 THEN A.BASE_YYYYMM END        AS BASE_YYYYMM
+            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+            ,0 AS DISP_SEQ
+      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+            ,(SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
+              SELECT 2 AS SEQ FROM SYSIBM.SYSDUMMY1) B
+            ,(SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
+              SELECT 2 AS SEQ FROM SYSIBM.SYSDUMMY1) C
+      WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 24 MONTH, 'YYYYMM') AND P_BASIS_YYYYMM
+      AND    A.SUBSDR_CD = P_SUBSDR_CD
+      AND    A.SCENARIO_TYPE_CD = 'AC0'
+      AND    A.KPI_CD IN ('SALE')
+      AND    A.CAT_CD IN ('BEP_SMART_DIV')
+      GROUP BY CASE C.SEQ
+                  WHEN 1 THEN '법인전체'
+                  WHEN 2 THEN A.DIV_CD END
+              ,A.KPI_CD
+              ,CASE WHEN B.SEQ = 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
+                    WHEN B.SEQ = 2 THEN A.BASE_YYYYMM END
+          
+      UNION ALL
+
+-- 2.각 사업부별
+      SELECT 'B2B Only'           AS COL_INDEX
+            ,A.KPI_CD             AS KPI_CD
+            ,CASE WHEN B.SEQ = 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
+                  WHEN B.SEQ = 2 THEN A.BASE_YYYYMM END        AS BASE_YYYYMM
+            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+            ,0 AS DISP_SEQ
+      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+            ,(SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
+              SELECT 2 AS SEQ FROM SYSIBM.SYSDUMMY1) B
+            ,(
+              SELECT DIVISION_CODE AS DIV_CD
+                    ,DISPLAY_NAME1 AS DIV_KOR_NM
+                    ,DISPLAY_NAME2 AS DIV_ENG_NM
+              FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+              WHERE  CODE_TYPE = 'SMART_B2B_Sales'
+              AND    ATTRIBUTE2= 'B2B_DIV'
+             ) C
+      WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 24 MONTH, 'YYYYMM') AND P_BASIS_YYYYMM
+      AND    A.SUBSDR_CD = P_SUBSDR_CD
+      AND    A.SCENARIO_TYPE_CD = 'AC0'
+      AND    A.KPI_CD IN ('SALE','CROSS_BORDER','CROSS_BU')
+      AND    A.CAT_CD IN ('BEP_SMART_DIV','BEP_SMART_CROSS')
+      AND    A.DIV_CD = C.DIV_CD
+      GROUP BY A.KPI_CD
+              ,CASE WHEN B.SEQ = 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
+                    WHEN B.SEQ = 2 THEN A.BASE_YYYYMM END
+
+    WITH UR;
