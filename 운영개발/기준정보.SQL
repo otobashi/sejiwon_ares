@@ -66,6 +66,7 @@ AND    A.DIVISION_CODE IN ('PKT' -- Security
                           ,'MTT' -- CEM(외판)
                           ,'PWV' -- 수처리
                           ,'PDT' -- ....생산기술원(외판)은 뭔지 모름.
+                          ,'PCT'
                           )
 
 UNION ALL
@@ -110,4 +111,37 @@ AND    A.DIVISION_CODE IN ('GLT' -- LCD TV
                           ,'DGT' -- RAC
                           )
 
-                     
+;
+-- 수주잔고
+
+INSERT INTO IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+(
+ CODE_TYPE
+,DIVISION_CODE
+,CORPORATION_CODE
+,DISPLAY_NAME1
+,DISPLAY_NAME2
+,DISPLAY_ORDER_SEQ
+,USE_FLAG
+,ATTRIBUTE1
+,ATTRIBUTE2
+)
+SELECT 'B2B_BACKLOG' AS CODE_TYPE
+      ,A.DIVISION_CODE AS DIV_CD
+      ,'*' AS CORP_CD
+      ,A.DISPLAY_NAME AS KOR_NM
+      ,A.DIVISION_NAME AS ENG_NM
+      ,0
+      ,'Y'
+      ,'DIV' AS PD_TYPE
+      ,A.DIVISION_CODE AS DIV_CD
+FROM   IPTDW.IPTDW_RES_DIM_COMM_DIVISION A
+WHERE  A.BASIS_YYYYMM = '201601'
+AND    A.DIVISION_CODE IN ( 'DMT'
+                   ,'DTT'
+                   ,'GJT'
+                   ,'GNT'
+                   ,'PGT'
+                   ,'SDT'
+                   ,'CLT'
+                   ,'ALL' )                       

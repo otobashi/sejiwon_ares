@@ -69,10 +69,24 @@ AND    SCENARIO_TYPE_CD IN ('AC0','PR1')
 AND    ldgr_type_cd   = '1' -- 연결 장부 기준 
 AND    subsdr_type_cd = 'S' -- 판매법인(제판포함)
 -- AND    SUMM_FLAG = 'N' --MC 제외 여부
-AND    ACCT_CD IN ( 'BEP20000000' -- 순매출
-                   ,'BEP60000000' -- 영업이익
-                   ,'BACKLOGBALAMT' -- 수주잔고
-                  )
+
+AND    ACCT_CD IN ( 'BEP20000B2B'   -- 순매출B2B
+                   ,'BEP20000B2BR'  -- 순매출비중
+                   ,'BEP60000B2B'   -- 영업이익B2B
+                   ,'BEP60000B2B%'  -- 영업이익율B2B
+                   ,'BEP20000000'
+                   ,'BEP60000000'
+                   ,'BACKLOGBALAMT'   -- 수주잔고
+                   ,'BBRATIO05W'
+                   ,'BBRATIO13W'
+                   ,'BBRATIO52W'   -- BBRATIO
+                   )
+/*
+AND    ACCT_CD IN ( 'BEP20000B2B'   -- 순매출B2B
+                   ,'BEP20000B2BR'  -- 순매출비중
+                   ,'BEP60000B2B'   -- 영업이익B2B
+                   ,'BEP60000B2B%'  -- 영업이익율B2B
+*/                   
 AND    PROD_CD IN ( 'CLT'
                    ,'CNT'
                    ,'CVT'
@@ -89,6 +103,8 @@ AND    PROD_CD IN ( 'CLT'
                    ,'GTT'
                    ,'MST'
                    ,'MTT'
+                   ,'PCT'
+                   ,'PDT'
                    ,'PDT'
                    ,'PGT'
                    ,'PHT'
@@ -101,6 +117,64 @@ AND    PROD_CD IN ( 'CLT'
                    ,'SRT'
                    ,'VHT'
                    ,'VQT'
+                   ,'ALL' )                                    
+GROUP BY SUBSTR(PROD_CD,1,3)
+        ,DECODE(SCENARIO_TYPE_CD,'PR1',TO_CHAR(ADD_MONTHS(TO_DATE(BASE_YYYYMM,'YYYYMM'),1),'YYYYMM'),BASE_YYYYMM)
+        ,DECODE(SCENARIO_TYPE_CD,'PR1','MP',SCENARIO_TYPE_CD)
+        ,PROD_CD
+        ,SUBSDR_CD
+        ,ACCT_CD
+        ,DIV_BIZ_TYPE_CD
+UNION ALL
+SELECT '1720'                AS prcs_seq                                 
+      ,'ARES'                AS rs_module_cd                             
+      ,'DSM_KPI_DIV_B2B'     AS rs_clsf_id                               
+      ,'DSM_KPI_DIV_B2B'     AS rs_type_cd                               
+      ,'DSM_KPI_DIV_B2B'     AS rs_type_name                             
+      ,SUBSTR(PROD_CD,1,3)   AS div_cd                                   
+      ,DECODE(SCENARIO_TYPE_CD,'PR1',TO_CHAR(ADD_MONTHS(TO_DATE(BASE_YYYYMM,'YYYYMM'),1),'YYYYMM'),BASE_YYYYMM)         AS base_yyyymmdd                            
+      ,NULL                  AS cd_desc                                  
+      ,NULL                  AS sort_seq                                 
+      ,'Y'                   AS use_flag                                 
+      ,DECODE(SCENARIO_TYPE_CD,'PR1',TO_CHAR(ADD_MONTHS(TO_DATE(BASE_YYYYMM,'YYYYMM'),1),'YYYYMM'),BASE_YYYYMM)
+      ,DECODE(SCENARIO_TYPE_CD,'PR1','MP',SCENARIO_TYPE_CD)
+      ,PROD_CD
+      ,SUBSDR_CD
+      ,ACCT_CD
+      ,MIN(LDGR_TYPE_CD)
+      ,MIN(SUBSDR_TYPE_CD)
+      ,DIV_BIZ_TYPE_CD
+      ,MIN(DATA_DELIMT_CD)
+      ,MIN(INTRNL_EXTERN_TYPE_CD)
+      ,MIN(KPI_TYPE_CD)
+      ,MIN(SUMM_FLAG)
+      ,MIN(CURRENCY_CD)
+      ,SUM(CURRM_LOC_AMT)
+      ,SUM(CURRM_KRW_AMT)
+      ,SUM(CURRM_USD_AMT)
+      ,SUM(ACCUM_LOC_AMT)
+      ,SUM(ACCUM_KRW_AMT)
+      ,SUM(ACCUM_USD_AMT)
+      ,MIN(LOAD_DATE)
+FROM   TB_DSM_KPI_DIV_B2B_S
+WHERE  BASE_YYYYMM BETWEEN '201301' AND '201512'
+AND    SCENARIO_TYPE_CD IN ('AC0','PR1')
+AND    ldgr_type_cd   = '1' -- 연결 장부 기준 
+AND    subsdr_type_cd = 'S' -- 판매법인(제판포함)
+-- AND    SUMM_FLAG = 'N' --MC 제외 여부
+
+AND    ACCT_CD IN ( 'BACKLOGBALAMT'   -- 수주잔고
+                   ,'BBRATIO05W'
+                   ,'BBRATIO13W'
+                   ,'BBRATIO52W'   -- BBRATIO
+                  )
+AND    PROD_CD IN ( 'DMT'
+                   ,'DTT'
+                   ,'GJT'
+                   ,'GNT'
+                   ,'PGT'
+                   ,'SDT'
+                   ,'CLT'
                    ,'ALL' )                                    
 GROUP BY SUBSTR(PROD_CD,1,3)
         ,DECODE(SCENARIO_TYPE_CD,'PR1',TO_CHAR(ADD_MONTHS(TO_DATE(BASE_YYYYMM,'YYYYMM'),1),'YYYYMM'),BASE_YYYYMM)

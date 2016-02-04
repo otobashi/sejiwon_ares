@@ -43,10 +43,10 @@ BEGIN
                 WHEN 2 THEN A.BASE_YYYYMM END AS BASE_YYYYMM
           ,A.ACCT_CD
           ,A.SCENARIO_TYPE_CD
-          ,SUM(A.CURRM_KRW_AMT)
-          ,SUM(A.CURRM_USD_AMT)
-          ,SUM(A.ACCUM_KRW_AMT)
-          ,SUM(A.ACCUM_USD_AMT)
+          ,SUM(A.CURRM_KRW_AMT) AS CURRM_KRW_AMT
+          ,SUM(A.CURRM_USD_AMT) AS CURRM_USD_AMT
+          ,SUM(A.ACCUM_KRW_AMT) AS ACCUM_KRW_AMT
+          ,SUM(A.ACCUM_USD_AMT) AS ACCUM_USD_AMT
     FROM  (
            -- PROD
            SELECT B.GRP_CD  AS GRP_CD
@@ -55,8 +55,11 @@ BEGIN
                  ,B.ENG_NM  AS ENG_NM
                  ,A.BASE_YYYYMM AS BASE_YYYYMM
                  ,CASE A.ACCT_CD
-                       WHEN 'BEP20000000' THEN '매출'
-                       WHEN 'BEP60000000' THEN '영업이익' END AS ACCT_CD
+                       WHEN 'BEP20000B2B'  THEN '매출'
+                       WHEN 'BEP60000B2B'  THEN '영업이익' 
+                       WHEN 'BEP20000000'  THEN '결산매출'
+                       WHEN 'BEP60000000'  THEN '결산영업이익' 
+                       END AS ACCT_CD
                  ,CASE A.SCENARIO_TYPE_CD
                        WHEN 'AC0' THEN '실적'
                        WHEN 'MP'  THEN '계획' END AS SCENARIO_TYPE_CD
@@ -74,56 +77,9 @@ BEGIN
            WHERE  A.PROD_CD = B.PROD_CD
            AND    A.BASE_YYYYMM BETWEEN TO_CHAR(TO_DATE(P_BASIS_YYYYMM, 'YYYYMM')- 24 MONTH, 'YYYYMM') AND P_BASIS_YYYYMM
            AND    A.SCENARIO_TYPE_CD IN ('AC0','MP')
-           AND    A.ACCT_CD IN ('BEP20000000','BEP60000000')
-           AND    A.DATA_DELIMT_CD = 'PROD'
+           AND    A.ACCT_CD IN ('BEP20000000','BEP60000000','BEP20000B2B','BEP60000B2B')
            GROUP BY B.GRP_CD
                    ,A.PROD_CD
-                   ,B.KOR_NM
-                   ,B.ENG_NM
-                   ,A.BASE_YYYYMM
-                   ,A.ACCT_CD
-                   ,A.SCENARIO_TYPE_CD
-
-           UNION ALL
-
-           -- DIV
-           SELECT B.GRP_CD  AS GRP_CD
-                 ,A.DIV_CD  AS PROD_CD
-                 ,B.KOR_NM  AS KOR_NM
-                 ,B.ENG_NM  AS ENG_NM
-                 ,CASE A.SCENARIO_TYPE_CD
-                       WHEN 'AC0' THEN A.BASE_YYYYMM
-                       WHEN 'PR1' THEN TO_CHAR(TO_DATE(P_BASIS_YYYYMM, 'YYYYMM')+1 MONTH, 'YYYYMM') END AS BASE_YYYYMM
-                 ,CASE A.ACCT_CD
-                       WHEN '41000000' THEN '결산매출'
-                       WHEN '549999PL' THEN '결산영업이익' END AS ACCT_CD
-                 ,CASE A.SCENARIO_TYPE_CD
-                       WHEN 'AC0' THEN '결산실적'
-                       WHEN 'PR1' THEN '결산계획' END AS SCENARIO_TYPE_CD
-                 ,SUM(A.CURRM_KRW_AMT) AS CURRM_KRW_AMT
-                 ,SUM(A.CURRM_USD_AMT) AS CURRM_USD_AMT
-                 ,SUM(A.ACCUM_KRW_AMT) AS ACCUM_KRW_AMT
-                 ,SUM(A.ACCUM_USD_AMT) AS ACCUM_USD_AMT
-           FROM   IPTDW.IPTDW_RES_KPI_DIV_S A
-                 ,(SELECT CORPORATION_CODE AS GRP_CD
-                         ,ATTRIBUTE2    AS DIV_CD
-                         ,DISPLAY_NAME1 AS KOR_NM
-                         ,DISPLAY_NAME2 AS ENG_NM
-                   FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                   WHERE  CODE_TYPE = 'B2B_ETC_B2C') B
-                 ,(SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL 
-                   SELECT 2 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
-                   SELECT 3 AS SEQ FROM SYSIBM.SYSDUMMY1) C
-           WHERE  A.DIV_CD = B.DIV_CD
-           AND    A.BASE_YYYYMM BETWEEN TO_CHAR(TO_DATE(P_BASIS_YYYYMM, 'YYYYMM')- 24 MONTH, 'YYYYMM') AND P_BASIS_YYYYMM
-           AND    A.SCENARIO_TYPE_CD IN ('AC0','PR1')
-           AND    A.ACCT_CD IN ('41000000','549999PL')
-           AND    A.KPI_TYPE_CD     = 'TB'
-           AND    A.LDGR_TYPE_CD    = '1'
-           AND    A.CMPNY_EXCL_FLAG = 'N'
-           AND    A.SUBSDR_CD       = 'ALL'
-           GROUP BY B.GRP_CD
-                   ,A.DIV_CD
                    ,B.KOR_NM
                    ,B.ENG_NM
                    ,A.BASE_YYYYMM
@@ -139,8 +95,11 @@ BEGIN
                  ,'B2B_ALL TOTAL' AS ENG_NM
                  ,A.BASE_YYYYMM AS BASE_YYYYMM
                  ,CASE A.ACCT_CD
-                       WHEN 'BEP20000000' THEN '매출'
-                       WHEN 'BEP60000000' THEN '영업이익' END AS ACCT_CD
+                       WHEN 'BEP20000B2B'  THEN '매출'
+                       WHEN 'BEP60000B2B'  THEN '영업이익' 
+                       WHEN 'BEP20000000'  THEN '결산매출'
+                       WHEN 'BEP60000000'  THEN '결산영업이익' 
+                       END AS ACCT_CD
                  ,CASE A.SCENARIO_TYPE_CD
                        WHEN 'AC0' THEN '실적'
                        WHEN 'MP'  THEN '계획' END AS SCENARIO_TYPE_CD
@@ -155,7 +114,7 @@ BEGIN
            AND    A.PROD_CD   = 'ALL'
            AND    A.KPI_TYPE_CD = 'B2B'
            AND    A.SCENARIO_TYPE_CD IN ('AC0','MP')
-           AND    A.ACCT_CD IN ('BEP20000000','BEP60000000')
+           AND    A.ACCT_CD IN ('BEP20000000','BEP60000000','BEP20000B2B','BEP60000B2B')
            GROUP BY A.PROD_CD
                    ,A.BASE_YYYYMM
                    ,A.ACCT_CD
@@ -170,8 +129,11 @@ BEGIN
                  ,'B2B_PR TOTAL' AS ENG_NM
                  ,A.BASE_YYYYMM AS BASE_YYYYMM
                  ,CASE A.ACCT_CD
-                       WHEN 'BEP20000000' THEN '매출'
-                       WHEN 'BEP60000000' THEN '영업이익' END AS ACCT_CD
+                       WHEN 'BEP20000B2B'  THEN '매출'
+                       WHEN 'BEP60000B2B'  THEN '영업이익' 
+                       WHEN 'BEP20000000'  THEN '결산매출'
+                       WHEN 'BEP60000000'  THEN '결산영업이익' 
+                       END AS ACCT_CD
                  ,CASE A.SCENARIO_TYPE_CD
                        WHEN 'AC0' THEN '실적'
                        WHEN 'MP'  THEN '계획' END AS SCENARIO_TYPE_CD
@@ -186,7 +148,7 @@ BEGIN
            AND    A.PROD_CD   = 'ALL'
            AND    A.KPI_TYPE_CD = 'B2B'
            AND    A.SCENARIO_TYPE_CD IN ('AC0','MP')
-           AND    A.ACCT_CD IN ('BEP20000000','BEP60000000')
+           AND    A.ACCT_CD IN ('BEP20000000','BEP60000000','BEP20000B2B','BEP60000B2B')
            GROUP BY A.PROD_CD
                    ,A.BASE_YYYYMM
                    ,A.ACCT_CD
@@ -201,8 +163,11 @@ BEGIN
                  ,'OT_B2B TOTAL' AS ENG_NM
                  ,A.BASE_YYYYMM AS BASE_YYYYMM
                  ,CASE A.ACCT_CD
-                       WHEN 'BEP20000000' THEN '매출'
-                       WHEN 'BEP60000000' THEN '영업이익' END AS ACCT_CD
+                       WHEN 'BEP20000B2B'  THEN '매출'
+                       WHEN 'BEP60000B2B'  THEN '영업이익' 
+                       WHEN 'BEP20000000'  THEN '결산매출'
+                       WHEN 'BEP60000000'  THEN '결산영업이익' 
+                       END AS ACCT_CD
                  ,CASE A.SCENARIO_TYPE_CD
                        WHEN 'AC0' THEN '실적'
                        WHEN 'MP'  THEN '계획' END AS SCENARIO_TYPE_CD
@@ -217,7 +182,7 @@ BEGIN
            AND    A.PROD_CD   = 'ALL'
            AND    A.KPI_TYPE_CD = 'B2B'
            AND    A.SCENARIO_TYPE_CD IN ('AC0','MP')
-           AND    A.ACCT_CD IN ('BEP20000000','BEP60000000')
+           AND    A.ACCT_CD IN ('BEP20000000','BEP60000000','BEP20000B2B','BEP60000B2B')
            GROUP BY A.PROD_CD
                    ,A.BASE_YYYYMM
                    ,A.ACCT_CD
@@ -232,8 +197,11 @@ BEGIN
                  ,'B2B_OF TOTAL' AS ENG_NM
                  ,A.BASE_YYYYMM AS BASE_YYYYMM
                  ,CASE A.ACCT_CD
-                       WHEN 'BEP20000000' THEN '매출'
-                       WHEN 'BEP60000000' THEN '영업이익' END AS ACCT_CD
+                       WHEN 'BEP20000B2B'  THEN '매출'
+                       WHEN 'BEP60000B2B'  THEN '영업이익' 
+                       WHEN 'BEP20000000'  THEN '결산매출'
+                       WHEN 'BEP60000000'  THEN '결산영업이익' 
+                       END AS ACCT_CD
                  ,CASE A.SCENARIO_TYPE_CD
                        WHEN 'AC0' THEN '실적'
                        WHEN 'MP'  THEN '계획' END AS SCENARIO_TYPE_CD
@@ -248,7 +216,7 @@ BEGIN
            AND    A.PROD_CD   = 'ALL'
            AND    A.KPI_TYPE_CD = 'B2B'
            AND    A.SCENARIO_TYPE_CD IN ('AC0','MP')
-           AND    A.ACCT_CD IN ('BEP20000000','BEP60000000')
+           AND    A.ACCT_CD IN ('BEP20000000','BEP60000000','BEP20000B2B','BEP60000B2B')
            GROUP BY A.PROD_CD
                    ,A.BASE_YYYYMM
                    ,A.ACCT_CD
@@ -263,8 +231,11 @@ BEGIN
                  ,'B2C_PR TOTAL' AS ENG_NM
                  ,A.BASE_YYYYMM AS BASE_YYYYMM
                  ,CASE A.ACCT_CD
-                       WHEN 'BEP20000000' THEN '매출'
-                       WHEN 'BEP60000000' THEN '영업이익' END AS ACCT_CD
+                       WHEN 'BEP20000B2B'  THEN '매출'
+                       WHEN 'BEP60000B2B'  THEN '영업이익' 
+                       WHEN 'BEP20000000'  THEN '결산매출'
+                       WHEN 'BEP60000000'  THEN '결산영업이익' 
+                       END AS ACCT_CD
                  ,CASE A.SCENARIO_TYPE_CD
                        WHEN 'AC0' THEN '실적'
                        WHEN 'MP'  THEN '계획' END AS SCENARIO_TYPE_CD
@@ -279,7 +250,7 @@ BEGIN
            AND    A.PROD_CD   = 'ALL'
            AND    A.KPI_TYPE_CD = 'B2B'
            AND    A.SCENARIO_TYPE_CD IN ('AC0','MP')
-           AND    A.ACCT_CD IN ('BEP20000000','BEP60000000')
+           AND    A.ACCT_CD IN ('BEP20000000','BEP60000000','BEP20000B2B','BEP60000B2B')
            GROUP BY A.PROD_CD
                    ,A.BASE_YYYYMM
                    ,A.ACCT_CD
