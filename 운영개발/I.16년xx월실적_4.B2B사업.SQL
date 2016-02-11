@@ -51,7 +51,10 @@ BEGIN
            -- PROD
            SELECT B.GRP_CD  AS GRP_CD
                  ,A.PROD_CD AS PROD_CD
-                 ,B.KOR_NM  AS KOR_NM
+                 ,CASE WHEN A.PROD_CD = 'PNT' AND A.DIV_BIZ_TYPE_CD = 'B2B_PR' THEN B.KOR_NM||'_B2B'
+                       WHEN A.PROD_CD = 'PNT' AND A.DIV_BIZ_TYPE_CD = 'B2C_PR' THEN B.KOR_NM||'_B2C'
+                       ELSE B.KOR_NM                 
+                  END AS KOR_NM
                  ,B.ENG_NM  AS ENG_NM
                  ,A.BASE_YYYYMM AS BASE_YYYYMM
                  ,CASE A.ACCT_CD
@@ -78,9 +81,16 @@ BEGIN
            AND    A.BASE_YYYYMM BETWEEN TO_CHAR(TO_DATE(P_BASIS_YYYYMM, 'YYYYMM')- 24 MONTH, 'YYYYMM') AND P_BASIS_YYYYMM
            AND    A.SCENARIO_TYPE_CD IN ('AC0','MP')
            AND    A.ACCT_CD IN ('BEP20000000','BEP60000000','BEP20000B2B','BEP60000B2B')
+           /* 2016-02-04 MYSIK ¼öÁ¤ */
+           AND    A.SUBSDR_CD = 'ALL'
+           AND    A.DIV_BIZ_TYPE_CD IN ('B2B_PR', 'B2C_PR')
            GROUP BY B.GRP_CD
                    ,A.PROD_CD
-                   ,B.KOR_NM
+	               ,CASE WHEN A.PROD_CD = 'PNT' AND A.DIV_BIZ_TYPE_CD = 'B2B_PR' THEN B.KOR_NM||'_B2B'
+	                     WHEN A.PROD_CD = 'PNT' AND A.DIV_BIZ_TYPE_CD = 'B2C_PR' THEN B.KOR_NM||'_B2C'
+	                     ELSE B.KOR_NM
+	                 
+	                END 
                    ,B.ENG_NM
                    ,A.BASE_YYYYMM
                    ,A.ACCT_CD

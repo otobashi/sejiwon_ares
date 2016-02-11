@@ -43,10 +43,10 @@ BEGIN
                 WHEN 2 THEN A.BASE_YYYYMM END AS BASE_YYYYMM
           ,A.ACCT_CD
           ,A.SCENARIO_TYPE_CD
-          ,SUM(A.CURRM_KRW_AMT)
-          ,SUM(A.CURRM_USD_AMT)
-          ,SUM(A.ACCUM_KRW_AMT)
-          ,SUM(A.ACCUM_USD_AMT)
+          ,SUM(A.CURRM_KRW_AMT) AS CURRM_KRW_AMT
+          ,SUM(A.CURRM_USD_AMT) AS CURRM_USD_AMT
+          ,SUM(A.ACCUM_KRW_AMT) AS ACCUM_KRW_AMT
+          ,SUM(A.ACCUM_USD_AMT) AS ACCUM_USD_AMT
     FROM  (
            -- PROD
            SELECT B.GRP_CD  AS GRP_CD
@@ -77,6 +77,8 @@ BEGIN
            AND    A.SCENARIO_TYPE_CD IN ('AC0')
            AND    A.ACCT_CD IN ('BACKLOGBALAMT','BBRATIO05W')
            AND    A.DATA_DELIMT_CD = 'DIV'
+           AND    A.SUBSDR_CD = 'ALL'
+           AND    A.DIV_BIZ_TYPE_CD IN ('B2B_PR', 'B2C_PR')           
            GROUP BY B.GRP_CD
                    ,A.PROD_CD
                    ,B.KOR_NM
@@ -84,6 +86,38 @@ BEGIN
                    ,A.BASE_YYYYMM
                    ,A.ACCT_CD
                    ,A.SCENARIO_TYPE_CD
+           UNION ALL
+           -- ALL
+           SELECT '*'  AS GRP_CD
+                 ,A.PROD_CD AS PROD_CD
+                 ,'«’∞Ë'   AS KOR_NM
+                 ,'TOTAL'  AS ENG_NM
+                 ,A.BASE_YYYYMM AS BASE_YYYYMM
+                 ,CASE A.ACCT_CD
+                       WHEN 'BACKLOGBALAMT' THEN 'ºˆ¡÷¿‹∞Ì'
+                       WHEN 'BBRATIO05W'    THEN 'BB RATIO' 
+                       END AS ACCT_CD
+                 ,CASE A.SCENARIO_TYPE_CD
+                       WHEN 'AC0' THEN 'Ω«¿˚'
+                       WHEN 'MP'  THEN '∞Ë»π' END AS SCENARIO_TYPE_CD
+                 ,SUM(A.CURRM_KRW_AMT) AS CURRM_KRW_AMT
+                 ,SUM(A.CURRM_USD_AMT) AS CURRM_USD_AMT
+                 ,SUM(A.ACCUM_KRW_AMT) AS ACCUM_KRW_AMT
+                 ,SUM(A.ACCUM_USD_AMT) AS ACCUM_USD_AMT
+           FROM   IPTDW.IPTDW_RES_KPI_DIV_B2B_S A
+           WHERE  A.SUMM_FLAG   = 'Y'
+           AND    A.BASE_YYYYMM BETWEEN TO_CHAR(TO_DATE(P_BASIS_YYYYMM, 'YYYYMM')- 24 MONTH, 'YYYYMM') AND P_BASIS_YYYYMM
+           AND    A.SCENARIO_TYPE_CD IN ('AC0')
+           AND    A.ACCT_CD IN ('BBRATIO05W','BACKLOGBALAMT')
+           AND    A.DATA_DELIMT_CD = 'DIV'
+           AND    A.SUBSDR_CD = 'ALL'
+           AND    A.PROD_CD = 'ALL'
+           AND    A.DIV_BIZ_TYPE_CD IN ('B2B_ALL')           
+           GROUP BY A.PROD_CD
+                   ,A.BASE_YYYYMM
+                   ,A.ACCT_CD
+                   ,A.SCENARIO_TYPE_CD
+                   
           ) A
          ,(SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
            SELECT 2 AS SEQ FROM SYSIBM.SYSDUMMY1) B
