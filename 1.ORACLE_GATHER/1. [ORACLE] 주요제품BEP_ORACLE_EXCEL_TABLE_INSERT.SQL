@@ -23,7 +23,8 @@
                  ,attribute10_value 
                  ,attribute11_value 
            )
-           SELECT '1700'                AS prcs_seq                                 
+           SELECT /*+ PARALLEL(8) */
+                  '1700'                AS prcs_seq                                 
                  ,'ARES'                AS rs_module_cd                             
                  ,'BEP_SMART'           AS rs_clsf_id                               
                  ,'BEP_SMART_PROD_MMGN' AS rs_type_cd                               
@@ -61,7 +62,7 @@
                                       ,'BEP5000MGNL'  -- 한계적자금액
                                      )
                  ) b            
-           WHERE  a.base_yyyymm = '201512'
+           WHERE  a.base_yyyymm >= '201301'
            AND    a.acct_cd = b.acct_cd
            AND    a.scenario_type_cd = 'AC0'
            AND    a.kpi_type_cd = 'BEP'

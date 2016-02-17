@@ -30,7 +30,8 @@
            attribute15_value,
            attribute16_value
         )
-        SELECT '1550'                                                          AS prcs_seq
+        SELECT /*+ PARALLEL(8)  USE_HASH(A11 A12 A13 A14 A15 A16 A17 A18 A19 A110 A111 A112) */ 
+                '1550'                                                          AS prcs_seq
                ,'ARES'                                                         AS rs_module_cd
                ,'BEP_SMART'                                                    AS rs_clsf_id
                ,'BEP_SMART_PROD_MMGN'                                                    AS rs_type_cd

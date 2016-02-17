@@ -1,3 +1,12 @@
+--22174  / 133SEC
+SELECT COUNT(*)
+FROM   NPT_RS_MGR.TB_RS_EXCEL_UPLD_DATA_D
+WHERE  PRCS_SEQ = '1600'
+AND    RS_MODULE_CD = 'ARES'
+AND    RS_CLSF_ID   = 'BEP_SMART'
+AND    RS_TYPE_CD   LIKE 'BEP_SMART_GNT%'
+;
+
 INSERT INTO NPT_RS_MGR.TB_RS_EXCEL_UPLD_DATA_D
 (
 prcs_seq, 
@@ -34,12 +43,12 @@ attribute21_value,
 attribute22_value, 
 attribute23_value
 )
-select  /*+ use_hash(a11 a12 a13 a14 a15 a16 a17 a18 a19 a110 a111 a112 a113 a114 a115 a116 a117 a118 a119 a120 a121 a122 a123 a124 a125 a126 a127 a128 a129 a130 a131 a132 a133 a134 a135 a136 a137 a138 a139 a140) */
+select  /*+ PARALLEL(8) use_hash(a11 a12 a13 a14 a15 a16 a17 a18 a19 a110 a111 a112 a113 a114 a115 a116 a117 a118 a119 a120 a121 a122 a123 a124 a125 a126 a127 a128 a129 a130 a131 a132 a133 a134 a135 a136 a137 a138 a139 a140) */
 '1600'                --prcs_seq
 ,'ARES'                --rs_module_cd
 ,'BEP_SMART'           --rs_clsf_id
-,'BEP_SMART_CNT'       --rs_type_cd
-,'BEP_SMART_CNT'       --rs_type_name
+,'BEP_SMART_GNT'       --rs_type_cd
+,'BEP_SMART_GNT'       --rs_type_name
 ,DECODE(a13.UP_PROD_CD,'GNT_L3_1','GNTCS','GNT_L3_5','GNTHT')     --div_cd
 ,a11.ACCTG_YYYYMM                                                 --base_yyyymmdd
 ,a112.PROD_ENG_NAME                                               --cd_desc

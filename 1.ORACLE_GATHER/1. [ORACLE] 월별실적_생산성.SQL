@@ -22,7 +22,8 @@ INSERT INTO npt_rs_mgr.tb_rs_excel_upld_data_d
       ,attribute10_value 
       ,attribute11_value 
 )
-SELECT '1620'                AS prcs_seq                                 
+SELECT /*+ PARALLEL(8) */
+       '1620'                AS prcs_seq                                 
       ,'ARES'                AS rs_module_cd                             
       ,'BEP_SMART'           AS rs_clsf_id                               
       ,'BEP_SMART_HR'        AS rs_type_cd                               
@@ -52,10 +53,10 @@ FROM   tb_dsm_kpi_div_s a
                           ,'(HR) 인원수_FSE','(HR) 인원수_ISE ','(HR) 인원수_임시직 ','(HR) 인원수_사내도급 ','(HR) 인원수_ISE_영업/마케팅','(HR) 인원수_공통인원'
                           ,'(HR) 인건비(HR생산성 기준)','(HR) 인건비_사내도급제외')
       ) b            
-WHERE  a.base_yyyymm BETWEEN '201301' AND '201601'
+WHERE  a.base_yyyymm >= '201301'
 AND    a.acct_cd = b.acct_cd
-AND    a.subsdr_cd = 'EEUK'
-AND    a.div_cd IN ('GLT','GTT','MST','CNT','DFT','DGT','DMT','CMS')
+--AND    a.subsdr_cd = 'EEUK'
+--AND    a.div_cd IN ('GLT','GTT','MST','CNT','DFT','DGT','DMT','CMS')
 AND    a.currency_cd = '*'
 AND    a.scenario_type_cd = 'AC0'
 AND    a.kpi_type_cd in ('HR', 'HR_CNT')

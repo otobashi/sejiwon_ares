@@ -60,7 +60,7 @@
         AND     a11.subsdr_cd = a12.subsdr_cd)
         LEFT OUTER JOIN  npt_app.nv_dwd_02_grd_cd  a18
         ON     (a12.grd_cd = a18.attribute_cd)
-        WHERE  (a11.acctg_yyyymm = '201301'
+        WHERE  (a11.acctg_yyyymm >= '201301' --요 부분변경
         AND     a11.consld_sales_mdl_flag IN ('Y')
         AND     a11.vrnc_alc_incl_excl_cd IN ('INCL')
         AND     a11.currency_cd IN ('KRW','USD')
@@ -105,7 +105,7 @@
         AND     a11.subsdr_cd = a12.subsdr_cd)
         LEFT OUTER JOIN  npt_app.nv_dwd_02_grd_cd  a18
         ON     (a12.grd_cd = a18.attribute_cd)
-        WHERE  (a11.acctg_yyyymm = '201301'
+        WHERE  (a11.acctg_yyyymm >= '201301' --요 부분변경
         AND     a11.consld_sales_mdl_flag IN ('Y', 'N', '*')
         AND     a11.vrnc_alc_incl_excl_cd IN ('INCL')
         AND     a11.currency_cd IN ('KRW','USD')
@@ -151,7 +151,7 @@
         AND     a11.subsdr_cd = a12.subsdr_cd)
         LEFT OUTER JOIN  npt_app.nv_dwd_02_grd_cd  a18
         ON     (a12.grd_cd = a18.attribute_cd)
-        WHERE  (a11.acctg_yyyymm = '201301'
+        WHERE  (a11.acctg_yyyymm >= '201301' --요 부분변경
         AND     a11.consld_sales_mdl_flag IN ('Y')
         AND     a11.vrnc_alc_incl_excl_cd IN ('INCL')
         AND     a11.currency_cd IN ('KRW','USD')
@@ -196,7 +196,7 @@
         AND     a11.subsdr_cd = a12.subsdr_cd)
         LEFT OUTER JOIN  npt_app.nv_dwd_02_grd_cd  a18
         ON     (a12.grd_cd = a18.attribute_cd)
-        WHERE  (a11.acctg_yyyymm = '201301'
+        WHERE  (a11.acctg_yyyymm >= '201301' --요 부분변경
         AND     a11.consld_sales_mdl_flag IN ('Y', 'N', '*')
         AND     a11.vrnc_alc_incl_excl_cd IN ('INCL')
         AND     a11.currency_cd IN ('KRW','USD')
@@ -217,7 +217,8 @@
         /*---------------------------------------------------
            한계이익 구간별 매출액,한계이익,마케팅비용 생성
         ----------------------------------------------------*/
-        SELECT '1550'                                                          AS prcs_seq
+        SELECT /*+ PARALLEL(8) */
+               '1550'                                                          AS prcs_seq
               ,'ARES'                                                          AS rs_module_cd
               ,'BEP_SMART'                                                     AS rs_clsf_id
               ,'BEP_SMART_SUBSDR'                                              AS rs_type_cd

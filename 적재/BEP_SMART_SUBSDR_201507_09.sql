@@ -219,7 +219,8 @@
         /*---------------------------------------------------
            한계이익 구간별 매출액,한계이익,마케팅비용 생성
         ----------------------------------------------------*/
-        SELECT '1550'                                                          AS prcs_seq
+        SELECT /*+ PARALLEL(8) */
+               '1550'                                                          AS prcs_seq
               ,'ARES'                                                          AS rs_module_cd
               ,'BEP_SMART'                                                     AS rs_clsf_id
               ,'BEP_SMART_SUBSDR'                                                     AS rs_type_cd

@@ -57,6 +57,7 @@ BEGIN
       AND    A.SCENARIO_TYPE_CD = 'AC0'
       AND    A.KPI_CD IN ('SALE')
       AND    A.CAT_CD IN ('BEP_SMART_DIV')
+      AND    A.DIV_CD = 'GBU'
       GROUP BY A.KPI_CD
               ,CASE WHEN B.SEQ = 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
                     WHEN B.SEQ = 2 THEN A.BASE_YYYYMM END

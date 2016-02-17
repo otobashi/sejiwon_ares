@@ -26,7 +26,8 @@ INSERT INTO NPT_RS_MGR.TB_RS_EXCEL_UPLD_DATA_D
       ,ATTRIBUTE14_VALUE
       ,ATTRIBUTE15_VALUE
 )
-SELECT '1520'                                                          AS PRCS_SEQ                                 
+SELECT /*+ PARALLEL(8) */
+       '1520'                                                          AS PRCS_SEQ                                 
       ,'ARES'                                                          AS RS_MODULE_CD                             
       ,'BEP_SMART'                                                     AS RS_CLSF_ID                               
       ,'BEP_SMART_ML'                                                  AS RS_TYPE_CD                               
@@ -46,6 +47,7 @@ SELECT '1520'                                                          AS PRCS_S
             WHEN A.PLN_YYYYMM = TO_CHAR(ADD_MONTHS(TO_DATE(B.PLN_YYYYMM, 'YYYYMM'), 1), 'YYYYMM') THEN 'PR1'
             WHEN A.PLN_YYYYMM = TO_CHAR(ADD_MONTHS(TO_DATE(B.PLN_YYYYMM, 'YYYYMM'), 2), 'YYYYMM') THEN 'PR2'
             WHEN A.PLN_YYYYMM = TO_CHAR(ADD_MONTHS(TO_DATE(B.PLN_YYYYMM, 'YYYYMM'), 3), 'YYYYMM') THEN 'PR3'
+            WHEN A.PLN_YYYYMM = TO_CHAR(ADD_MONTHS(TO_DATE(B.PLN_YYYYMM, 'YYYYMM'), 4), 'YYYYMM') THEN 'PR4'
        END AS SCENARIO_TYPE_CD
       ,A.SUBSDR_CD
       ,C.SUBSDR_SHRT_NAME
@@ -64,7 +66,7 @@ FROM   TB_RFE_ML_UPLD_RSLT_S A
         AND   S.ACCTG_YYYYMM = '*'
         AND   S.ACCTG_WEEK   = '*'
         AND   S.TEMP_FLAG    = 'N' ) C
-WHERE  B.PLN_YYYYMM   = '201601' -- 요부분변경
+WHERE  B.PLN_YYYYMM   >= '201301' -- 요부분변경
 AND    A.DATA_TYPE_CD = 'SUBSDR'
 AND    A.PLN_YYYYWEEK = B.PLN_YYYYWEEK
 AND    B.PLN_YYYYMM   <= A.PLN_YYYYMM
@@ -80,6 +82,7 @@ GROUP BY A.DIV_CD
               WHEN A.PLN_YYYYMM = TO_CHAR(ADD_MONTHS(TO_DATE(B.PLN_YYYYMM, 'YYYYMM'), 1), 'YYYYMM') THEN 'PR1'
               WHEN A.PLN_YYYYMM = TO_CHAR(ADD_MONTHS(TO_DATE(B.PLN_YYYYMM, 'YYYYMM'), 2), 'YYYYMM') THEN 'PR2'
               WHEN A.PLN_YYYYMM = TO_CHAR(ADD_MONTHS(TO_DATE(B.PLN_YYYYMM, 'YYYYMM'), 3), 'YYYYMM') THEN 'PR3'
+              WHEN A.PLN_YYYYMM = TO_CHAR(ADD_MONTHS(TO_DATE(B.PLN_YYYYMM, 'YYYYMM'), 4), 'YYYYMM') THEN 'PR4'
          END 
         ,A.SUBSDR_CD
         ,C.SUBSDR_SHRT_NAME

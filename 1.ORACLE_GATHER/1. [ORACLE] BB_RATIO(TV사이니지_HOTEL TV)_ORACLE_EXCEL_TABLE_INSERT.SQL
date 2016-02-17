@@ -22,7 +22,8 @@ INSERT INTO NPT_RS_MGR.TB_RS_EXCEL_UPLD_DATA_D
 -- 43938 37.425
 -- BB RATIO
 -- BB RATIO
-SELECT '1540'                                                          AS PRCS_SEQ                                 
+SELECT /*+ PARALLEL(8) */
+       '1540'                                                          AS PRCS_SEQ                                 
       ,'ARES'                                                          AS RS_MODULE_CD                             
       ,'BEP_SMART'                                                     AS RS_CLSF_ID                               
       ,'BEP_SMART_BB'                                                  AS RS_TYPE_CD                               

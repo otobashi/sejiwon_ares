@@ -157,7 +157,7 @@ AS
 /*******************************************************/
 /* 주요제품군 조회                    */
 /*******************************************************/
-SELECT /*+ PARALLEL(32) */
+SELECT /*+ PARALLEL(8) */
        '1510'                                                          AS prcs_seq                                 
       ,'ARES'                                                          AS rs_module_cd                             
       ,'BEP_SMART'                                                     AS rs_clsf_id                               
@@ -240,7 +240,7 @@ FROM   npt_app.nv_dww_consld_bep_summ_s  a11
        LEFT OUTER JOIN  v_prod_m  a113                                                                             
        ON   a16.up_prod_cd   = a113.prod_cd                                                                        
        AND  a113.prod_lvl_cd = '1'                                                                                 
-WHERE  a11.acctg_yyyymm = '201508' -- &IV_YYYYMM    요부분변경                                                               
+WHERE  a11.acctg_yyyymm >= '201301' -- &IV_YYYYMM    요부분변경                                                               
 AND    a11.scenario_type_cd      = 'AC0'                                                                           
 AND    a11.consld_sales_mdl_flag = 'Y'                                                                             
 AND    a11.currm_accum_type_cd   = 'CURRM'                                                                         

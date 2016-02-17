@@ -24,7 +24,8 @@ INSERT INTO npt_rs_mgr.tb_rs_excel_upld_data_d
       ,attribute12_value
       ,attribute13_value
 )
-SELECT '1530'               AS prcs_seq                                 
+SELECT /*+ PARALLEL(8) */
+       '1530'               AS prcs_seq                                 
       ,'ARES'               AS rs_module_cd                             
       ,'BEP_SMART'          AS rs_clsf_id                               
       ,'BEP_SMART_PIPE'     AS rs_type_cd                               
@@ -54,7 +55,7 @@ FROM   npt_app.nv_dww_b2b_bal_h  a11
        ON (a11.mgt_org_cd = a13.mgt_subsdr_cd)
        LEFT OUTER JOIN  npt_app.nv_dwd_subsdr_m  a14
        ON (a11.subsdr_cd = a14.subsdr_cd)
-WHERE (a11.base_yyyymm BETWEEN '201201' AND '201601' -- 요부분변경
+WHERE (a11.base_yyyymm >= '201201' -- 요부분변경
 AND    a11.pjt_stg_cd IN ('A'))
 GROUP BY a11.subsdr_cd
         ,a14.subsdr_shrt_name
@@ -96,7 +97,7 @@ FROM   npt_app.nv_dww_b2b_bal_h  a11
        ON (a11.mgt_org_cd = a13.mgt_subsdr_cd)
        LEFT OUTER JOIN  npt_app.nv_dwd_subsdr_m  a14
        ON (a11.subsdr_cd = a14.subsdr_cd)
-WHERE (a11.base_yyyymm BETWEEN '201201' AND '201601' -- 요부분변경
+WHERE (a11.base_yyyymm >= '201201' -- 요부분변경
 AND    a11.div_cd = 'GNT'
 AND    SUBSTR(a11.prod_lvl3_cd,1,2) IN ('CS','HT')
 AND    SUBSTR(a11.prod_lvl4_cd,1,2) IN ('CS','HT')

@@ -113,7 +113,8 @@ BEGIN
       ,LAST_UPD_DATE
       ,LAST_UPD_USR_ID
     )
-    SELECT ATTRIBUTE4
+    SELECT DISTINCT
+           ATTRIBUTE4
           ,ATTRIBUTE7
           ,ATTRIBUTE2
           ,ATTRIBUTE8
@@ -141,7 +142,7 @@ BEGIN
           ,'ares'
     FROM   IPTDW.IPTDW_RES_EXCEL_UPLOAD_DATA
     WHERE  SEQ = '1520'
-    AND    CODE_ID  = p_category
+    AND    CODE_ID = p_category
     AND    YYYYMMDD = p_yyyymm
     GROUP BY ATTRIBUTE4
             ,ATTRIBUTE7

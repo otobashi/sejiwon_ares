@@ -1,0 +1,68 @@
+
+    DELETE
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY
+    WHERE  CAT_CD          = 'BEP_SMART_BB'
+    AND    MANUAL_ADJ_FLAG = 'N';
+
+    INSERT INTO IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY
+    (
+       BASE_YYYYMM
+      ,SCENARIO_TYPE_CD
+      ,DIV_CD
+      ,SUBSDR_CD
+      ,AU_CD
+      ,MANUAL_ADJ_FLAG
+      ,KPI_CD
+      ,CAT_CD
+      ,SUB_CAT_CD
+      ,ZONE_RNR_CD
+      ,SUBSDR_RNR_CD
+      ,CNTRY_CD
+      ,APPLY_YYYYMM
+      ,CURRM_KRW_AMT
+      ,CURRM_USD_AMT
+      ,ACCU_KRW_AMT
+      ,ACCU_USD_AMT
+      ,ATTRIBUTE1_VALUE
+    --  ,ATTRIBUTE2_VALUE
+    --  ,ATTRIBUTE3_VALUE
+    --  ,ATTRIBUTE4_VALUE
+    --  ,ATTRIBUTE5_VALUE
+      ,CREATION_DATE
+      ,CREATION_USR_ID
+      ,LAST_UPD_DATE
+      ,LAST_UPD_USR_ID
+    )
+    SELECT A.ATTRIBUTE1
+          ,'AC0'
+          ,A.ATTRIBUTE4
+          ,A.ATTRIBUTE3
+          ,'*'
+          ,'N'
+          ,CASE WHEN A.CODE_ID = 'BEP_SMART_BB' THEN 'BB'
+                WHEN A.CODE_ID = 'BEP_SMART_BBW5' THEN 'BB_W5'
+                WHEN A.CODE_ID = 'BEP_SMART_BBW13' THEN 'BB_W13'
+                WHEN A.CODE_ID = 'BEP_SMART_BBW52' THEN 'BB_W52' END
+          ,'BEP_SMART_BB'
+          ,'*'
+          ,'*'
+          ,'*'
+          ,'*'
+          ,A.ATTRIBUTE2
+          ,DOUBLE(TO_NUMBER(A.ATTRIBUTE5))
+          ,DOUBLE(TO_NUMBER(A.ATTRIBUTE6))
+          ,DOUBLE(TO_NUMBER(A.ATTRIBUTE7))
+          ,DOUBLE(TO_NUMBER(A.ATTRIBUTE8))
+          ,B.CODE_NAME
+          ,CURRENT TIMESTAMP
+          ,'ares'
+          ,CURRENT TIMESTAMP
+          ,'ares'
+    FROM   IPTDW.IPTDW_RES_EXCEL_UPLOAD_DATA A
+           LEFT OUTER JOIN
+           IPTDW.IPTDW_RES_DIM_CODES B
+           ON B.CODE_TYPE IN ('CORP_T','CORP_S') AND A.ATTRIBUTE3 = B.CODE_ID
+    WHERE  A.SEQ = '1540'
+    AND    A.CODE_ID LIKE 'BEP_SMART_BB'||'%'
+    --AND    A.YYYYMMDD = p_yyyymm
+    WITH UR;

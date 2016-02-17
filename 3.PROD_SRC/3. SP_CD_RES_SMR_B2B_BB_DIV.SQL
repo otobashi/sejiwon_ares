@@ -86,7 +86,8 @@ BEGIN
                     ,DISPLAY_NAME2 AS ENG_NM
                     ,DISPLAY_ORDER_SEQ AS DISP_SEQ
               FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-              WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+--              WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+              WHERE  CODE_TYPE IN ('BB_RATIO')
               AND    USE_FLAG = 'Y'
               AND    DIVISION_CODE = P_DIV_CD ) C
             ,(SELECT A.CORPORATION_CODE AS CORP_CD

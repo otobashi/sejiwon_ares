@@ -65,6 +65,7 @@ BEGIN
       AND    A.SCENARIO_TYPE_CD = 'AC0'
       AND    A.CAT_CD = 'BEP_SMART_DIV'
       AND    A.KPI_CD in ('SALE', 'COI')
+      AND    A.DIV_CD = 'GBU'
       AND    A.SUBSDR_CD = P_SUBSDR_CD
       GROUP BY A.SUBSDR_CD
               ,A.BASE_YYYYMM
@@ -235,6 +236,7 @@ BEGIN
               AND    A.CAT_CD = 'BEP_SMART_DIV'
               AND    A.KPI_CD in ('SALE', 'COI')
               AND    A.SUBSDR_CD = P_SUBSDR_CD
+              AND    A.DIV_CD = 'GBU'
               GROUP BY A.SUBSDR_CD
                       ,A.KPI_CD
              ) A
@@ -250,6 +252,7 @@ BEGIN
               AND    A.CAT_CD = 'BEP_SMART_DIV'
               AND    A.KPI_CD in ('SALE', 'COI')
               AND    A.SUBSDR_CD = P_SUBSDR_CD
+              AND    A.DIV_CD = 'GBU'
               GROUP BY A.SUBSDR_CD
                  ,A.KPI_CD
             ) B
@@ -528,6 +531,7 @@ BEGIN
       AND    A.CAT_CD = 'BEP_SMART_DIV'
       AND    A.KPI_CD in ('SALE', 'COI')
       AND    A.SUBSDR_CD = P_SUBSDR_CD
+      AND    A.DIV_CD = 'GBU'
       GROUP BY A.SUBSDR_CD
               ,A.BASE_YYYYMM
               ,A.KPI_CD
@@ -686,6 +690,7 @@ BEGIN
       AND    A.CAT_CD = 'BEP_SMART_DIV'
       AND    A.KPI_CD in ('SALE', 'COI')
       AND    A.SUBSDR_CD = P_SUBSDR_CD
+      AND    A.DIV_CD = 'GBU'
       GROUP BY A.SUBSDR_CD
               ,A.BASE_YYYYMM
               ,A.KPI_CD

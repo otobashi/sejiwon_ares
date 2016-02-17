@@ -1,6 +1,7 @@
 -- 1954 rows 107 sec
 -- BEP_SMART_PROD_MMGN
---  = '201403'
+--  BETWEEN '201504' AND '201506'
+
         INSERT INTO npt_rs_mgr.tb_rs_excel_upld_data_d
         (
            prcs_seq,
@@ -97,7 +98,7 @@ SELECT /*+ PARALLEL(8)  USE_HASH(A11 A12 A13 A14 A15 A16 A17 A18 A19 A110 A111 A
               LEFT OUTER JOIN  npt_app.nv_dwd_rpt_prod1_m  a115
               ON  (a17.up_prod_cd = a115.prod_cd)
          WHERE (a11.scenario_type_cd IN ('AC0')
-         AND   a11.acctg_yyyymm  = '201403'
+         AND   a11.acctg_yyyymm BETWEEN '201504' AND '201506'
          AND   a11.vrnc_alc_incl_excl_cd IN ('INCL')
          AND   a11.currency_cd IN ('USD'))
          AND   a11.loss_flag = 'Y'
