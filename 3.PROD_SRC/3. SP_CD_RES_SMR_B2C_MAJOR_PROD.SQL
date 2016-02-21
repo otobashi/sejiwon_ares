@@ -49,500 +49,42 @@ BEGIN
     DECLARE SQLSTATE                     CHAR(5)       DEFAULT '';
 
     DECLARE C1 CURSOR WITH HOLD WITH RETURN FOR
-
 -- 1.법인합계
       SELECT '1.법인합계'         AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
             ,A.BASE_YYYYMM        AS BASE_YYYYMM
-            ,A.KPI_CD             AS KPI_CD
+            ,CASE A.ACCT_CD
+                  WHEN '41000000' THEN 'SALE'
+                  WHEN '549999PL' THEN 'COI' END AS KPI_CD
             ,SUM(A.CURRM_USD_AMT) AS AMOUNT
             ,'0'                  AS SORT_KEY
             ,'합계'  AS KOR_NM
             ,'TOTAL' AS ENG_NM
-      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+      FROM   IPTDW.IPTDW_RES_KPI_DIV_S A
       WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 2 YEAR, 'YYYY')||'01' AND P_BASIS_YYYYMM
-      AND    A.SCENARIO_TYPE_CD = 'AC0'
-      AND    A.CAT_CD = 'BEP_SMART_DIV'
-      AND    A.KPI_CD in ('SALE', 'COI')
-      AND    A.SUBSDR_CD = P_SUBSDR_CD
-      AND    A.DIV_CD    = 'GBU'
+      AND    A.DIV_CD         = 'ALL'
+      AND    A.SUBSDR_CD      = P_SUBSDR_CD
+      AND    A.LDGR_TYPE_CD   = '1'
+      AND    A.SUBSDR_TYPE_CD = 'S'
+--      AND    A.KPI_TYPE_CD    = 'TB'
+      AND    A.ACCT_CD        IN ('41000000','549999PL')
+      AND    A.SCENARIO_TYPE_CD IN ('AC0')
       GROUP BY A.SUBSDR_CD
               ,A.BASE_YYYYMM
-              ,A.KPI_CD
-
+              ,A.ACCT_CD
       UNION ALL
-
--- 2.사업부합계
+-- 2.사업부별
       SELECT B.DISP_NM            AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
             ,A.BASE_YYYYMM        AS BASE_YYYYMM
-            ,A.KPI_CD             AS KPI_CD
+            ,CASE A.ACCT_CD
+                  WHEN '41000000' THEN 'SALE'
+                  WHEN '549999PL' THEN 'COI' END AS KPI_CD
             ,SUM(A.CURRM_USD_AMT) AS AMOUNT
             ,'1'                  AS SORT_KEY
             ,MIN(Z.KOR_NM) AS KOR_NM
             ,MIN(Z.ENG_NM) AS ENG_NM
-      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-           ,(SELECT DIVISION_CODE AS DIV_CD
-                   ,CASE WHEN DIVISION_CODE = 'GLT' THEN 'HE LCD TV'
-                         WHEN DIVISION_CODE = 'MST' THEN 'MC 단말'
-                         WHEN DIVISION_CODE = 'CNT' THEN 'H&A 냉장고'
-                         ELSE DISPLAY_NAME END AS DISP_NM
-             FROM   IPTDW.IPTDW_RES_DIM_COMM_DIVISION
-             WHERE  USE_FLAG = 'Y'
-             AND    BASIS_YYYYMM = '201601'
-             AND    DIVISION_CODE IN ('GLT','MST','CNT','DFT','DGT')
-            ) B
-            ,(
-              -- 사업부
-              SELECT 'DIV' AS CODE_TYPE
-                    ,A.DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    ,A.DIVISION_CODE     AS CODE
-                    ,A.DISPLAY_NAME      AS KOR_NM
-                    ,A.DIVISION_NAME     AS ENG_NM
-                    ,A.COMPANY_CODE      AS REF_CD
-              FROM   IPTDW.IPTDW_RES_DIM_COMM_DIVISION A
-              WHERE  A.BASIS_YYYYMM = '201601'
-              AND    A.USE_FLAG = 'Y'
-             ) Z
-      WHERE A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 2 YEAR, 'YYYY')||'01' AND P_BASIS_YYYYMM
-      AND   A.SCENARIO_TYPE_CD = 'AC0'
-      AND   A.CAT_CD = 'BEP_SMART_DIV'
-      AND   A.KPI_CD in ('SALE', 'COI')
-      AND   A.SUBSDR_CD = P_SUBSDR_CD
-      AND   A.DIV_CD = Z.CODE
-      AND   A.DIV_CD IN ('GLT','MST','CNT','DFT','DGT')
-      AND   A.DIV_CD = B.DIV_CD
-      GROUP BY B.DISP_NM
-              ,A.SUBSDR_CD
-              ,A.BASE_YYYYMM
-              ,A.KPI_CD
-
-      UNION ALL
-
--- 3 LEVEL2
-      SELECT B.PROD_KOR_NM        AS COL_INDEX
-            ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,A.BASE_YYYYMM        AS BASE_YYYYMM
-            ,A.KPI_CD             AS KPI_CD
-            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-            ,'1'                  AS SORT_KEY
-            ,MIN(Z.KOR_NM) AS KOR_NM
-            ,MIN(Z.ENG_NM) AS ENG_NM
-      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-           ,(SELECT ATTRIBUTE1    AS PROD_CD
-                   ,DISPLAY_NAME1 AS PROD_KOR_NM
-                   ,DISPLAY_NAME2 AS PROD_ENG_NM
-             FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-             WHERE  CODE_TYPE = 'SMR_PROD_MST'
-             AND    USE_FLAG  = 'Y'
-             AND    ATTRIBUTE2= 'B2C_DIV'
-            ) B
-            ,(
-              -- 제품
-              SELECT 'PROD' AS CODE_TYPE
-                    ,A.DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    ,A.ATTRIBUTE1          AS CODE
-                    ,A.DISPLAY_NAME1       AS KOR_NM
-                    ,A.DISPLAY_NAME2       AS ENG_NM
-                    ,A.ATTRIBUTE1          AS REF_CD
-              FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER A
-              WHERE  A.CODE_TYPE = 'SMR_PROD_MST'
-              AND    A.USE_FLAG  = 'Y'
-             ) Z
-      WHERE A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 2 YEAR, 'YYYY')||'01' AND P_BASIS_YYYYMM
-      AND   A.SCENARIO_TYPE_CD = 'AC0'
-      AND   A.CAT_CD = 'BEP_SMART_PROD'
-      AND   A.KPI_CD in ('SALE', 'COI')
-      AND   A.SUBSDR_CD = P_SUBSDR_CD
-      AND   A.ATTRIBUTE3_VALUE = B.PROD_CD
-      AND   A.ATTRIBUTE3_VALUE = Z.CODE
-      GROUP BY B.PROD_KOR_NM
-              ,A.SUBSDR_CD
-              ,A.BASE_YYYYMM
-              ,A.KPI_CD
-
-
-      UNION ALL
-
--- 4 LEVEL3
-      SELECT B.PROD_KOR_NM        AS COL_INDEX
-            ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,A.BASE_YYYYMM        AS BASE_YYYYMM
-            ,A.KPI_CD             AS KPI_CD
-            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-            ,'1'                  AS SORT_KEY
-            ,MIN(Z.KOR_NM) AS KOR_NM
-            ,MIN(Z.ENG_NM) AS ENG_NM
-      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-           ,(SELECT ATTRIBUTE1    AS PROD_CD
-                   ,DISPLAY_NAME1 AS PROD_KOR_NM
-                   ,DISPLAY_NAME2 AS PROD_ENG_NM
-             FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-             WHERE  CODE_TYPE = 'SMR_PROD_MST'
-             AND    USE_FLAG  = 'Y'
-             AND    ATTRIBUTE2= 'B2C_DIV'
-            ) B
-            ,(
-              -- 제품
-              SELECT 'PROD' AS CODE_TYPE
-                    ,A.DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    ,A.ATTRIBUTE1          AS CODE
-                    ,A.DISPLAY_NAME1       AS KOR_NM
-                    ,A.DISPLAY_NAME2       AS ENG_NM
-                    ,A.ATTRIBUTE1          AS REF_CD
-              FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER A
-              WHERE  A.CODE_TYPE = 'SMR_PROD_MST'
-              AND    A.USE_FLAG  = 'Y'
-             ) Z
-      WHERE A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 2 YEAR, 'YYYY')||'01' AND P_BASIS_YYYYMM
-      AND   A.SCENARIO_TYPE_CD = 'AC0'
-      AND   A.CAT_CD = 'BEP_SMART_PROD'
-      AND   A.KPI_CD in ('SALE', 'COI')
-      AND   A.SUBSDR_CD = P_SUBSDR_CD
-      AND   A.ATTRIBUTE4_VALUE = B.PROD_CD
-      AND   A.ATTRIBUTE4_VALUE = Z.CODE
-      GROUP BY B.PROD_KOR_NM
-              ,A.SUBSDR_CD
-              ,A.BASE_YYYYMM
-              ,A.KPI_CD
-
--- 전년대비
-      UNION ALL
-
--- 1.법인합계
-      SELECT '1.법인합계'        AS COL_INDEX
-            ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,'전년대비'        AS BASE_YYYYMM
-            ,A.KPI_CD             AS KPI_CD
-            ,CASE WHEN A.KPI_CD = 'SALE' THEN (B.AMOUNT - A.AMOUNT) / A.AMOUNT
-                  WHEN A.KPI_CD = 'COI'  THEN B.AMOUNT - A.AMOUNT END AS AMOUNT
-            ,'0'                  AS SORT_KEY
-            ,'합계'  AS KOR_NM
-            ,'TOTAL' AS ENG_NM
-      FROM   (
-              SELECT '전년'        AS COL_INDEX
-                    ,A.SUBSDR_CD          AS SUBSDR_CD
-                    ,A.KPI_CD             AS KPI_CD
-                    ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-                    ,'0'                  AS SORT_KEY
-              FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-              WHERE  A.BASE_YYYYMM = TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
-              AND    A.SCENARIO_TYPE_CD = 'AC0'
-              AND    A.CAT_CD = 'BEP_SMART_DIV'
-              AND    A.KPI_CD in ('SALE', 'COI')
-              AND    A.SUBSDR_CD = P_SUBSDR_CD
-              AND    A.DIV_CD    = 'GBU'
-              GROUP BY A.SUBSDR_CD
-                      ,A.KPI_CD
-             ) A
-           ,(
-              SELECT '금년'        AS COL_INDEX
-                    ,A.SUBSDR_CD          AS SUBSDR_CD
-                    ,A.KPI_CD             AS KPI_CD
-                    ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-                    ,'0'                  AS SORT_KEY
-              FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-              WHERE  A.BASE_YYYYMM = P_BASIS_YYYYMM
-              AND    A.SCENARIO_TYPE_CD = 'AC0'
-              AND    A.CAT_CD = 'BEP_SMART_DIV'
-              AND    A.KPI_CD in ('SALE', 'COI')
-              AND    A.SUBSDR_CD = P_SUBSDR_CD
-              AND    A.DIV_CD    = 'GBU'
-              GROUP BY A.SUBSDR_CD
-                 ,A.KPI_CD
-            ) B
-      WHERE A.KPI_CD = B.KPI_CD
-
-      UNION ALL
-
--- 2.사업부합계
-      SELECT  A.COL_INDEX        AS COL_INDEX
-             ,A.SUBSDR_CD          AS SUBSDR_CD
-             ,'전년대비'        AS BASE_YYYYMM
-             ,A.KPI_CD             AS KPI_CD
-             ,CASE WHEN A.KPI_CD = 'SALE' THEN (B.AMOUNT - A.AMOUNT) / A.AMOUNT
-                   WHEN A.KPI_CD = 'COI'  THEN B.AMOUNT - A.AMOUNT END AS AMOUNT
-             ,'0'                  AS SORT_KEY
-             ,A.KOR_NM AS KOR_NM
-             ,A.ENG_NM AS ENG_NM
-      FROM   (
-              SELECT B.DISP_NM        AS COL_INDEX
-                    ,A.SUBSDR_CD          AS SUBSDR_CD
-                    ,A.KPI_CD             AS KPI_CD
-                    ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-                    ,'1'                  AS SORT_KEY
-                    ,MIN(Z.KOR_NM) AS KOR_NM
-                    ,MIN(Z.ENG_NM) AS ENG_NM
-              FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-                   ,(SELECT DIVISION_CODE AS DIV_CD
-                           ,CASE WHEN DIVISION_CODE = 'GLT' THEN 'HE LCD TV'
-                                 WHEN DIVISION_CODE = 'MST' THEN 'MC 단말'
-                                 WHEN DIVISION_CODE = 'CNT' THEN 'H&A 냉장고'
-                                 ELSE DISPLAY_NAME END AS DISP_NM
-                     FROM   IPTDW.IPTDW_RES_DIM_COMM_DIVISION
-                     WHERE  USE_FLAG = 'Y'
-                     AND    BASIS_YYYYMM = '201601'
-                     AND    DIVISION_CODE IN ('GLT','MST','CNT','DFT','DGT')
-                    ) B
-                   ,(
-                     -- 사업부
-                     SELECT 'DIV' AS CODE_TYPE
-                           ,A.DISPLAY_ORDER_SEQ AS DISP_SEQ
-                           ,A.DIVISION_CODE     AS CODE
-                           ,A.DISPLAY_NAME      AS KOR_NM
-                           ,A.DIVISION_NAME     AS ENG_NM
-                           ,A.COMPANY_CODE      AS REF_CD
-                     FROM   IPTDW.IPTDW_RES_DIM_COMM_DIVISION A
-                     WHERE  A.BASIS_YYYYMM = '201601'
-                     AND    A.USE_FLAG = 'Y'
-                    ) Z
-              WHERE A.BASE_YYYYMM = TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
-              AND   A.SCENARIO_TYPE_CD = 'AC0'
-              AND   A.CAT_CD = 'BEP_SMART_DIV'
-              AND   A.KPI_CD in ('SALE', 'COI')
-              AND   A.SUBSDR_CD = P_SUBSDR_CD
-              AND   A.DIV_CD IN ('GLT','MST','CNT','DFT','DGT')
-              AND   A.DIV_CD = B.DIV_CD
-              AND   A.DIV_CD = Z.CODE
-              GROUP BY B.DISP_NM
-                      ,A.SUBSDR_CD
-                      ,A.KPI_CD
-             ) A
-           ,(
-              SELECT B.DISP_NM        AS COL_INDEX
-                    ,A.SUBSDR_CD          AS SUBSDR_CD
-                    ,A.KPI_CD             AS KPI_CD
-                    ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-                    ,'1'                  AS SORT_KEY
-              FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-                   ,(SELECT DIVISION_CODE AS DIV_CD
-                           ,CASE WHEN DIVISION_CODE = 'GLT' THEN 'HE LCD TV'
-                                 WHEN DIVISION_CODE = 'MST' THEN 'MC 단말'
-                                 WHEN DIVISION_CODE = 'CNT' THEN 'H&A 냉장고'
-                                 ELSE DISPLAY_NAME END AS DISP_NM
-                     FROM   IPTDW.IPTDW_RES_DIM_COMM_DIVISION
-                     WHERE  USE_FLAG = 'Y'
-                     AND    BASIS_YYYYMM = P_BASIS_YYYYMM
-                     AND    DIVISION_CODE IN ('GLT','MST','CNT','DFT','DGT')
-                    ) B
-              WHERE  A.BASE_YYYYMM = P_BASIS_YYYYMM
-              AND   A.SCENARIO_TYPE_CD = 'AC0'
-              AND   A.CAT_CD = 'BEP_SMART_PROD'
-              AND   A.KPI_CD in ('SALE', 'COI')
-              AND   A.SUBSDR_CD = P_SUBSDR_CD
-              AND   A.DIV_CD IN ('GLT','MST','CNT','DFT','DGT')
-              AND   A.DIV_CD = B.DIV_CD
-              GROUP BY B.DISP_NM
-                      ,A.SUBSDR_CD
-                      ,A.KPI_CD
-            ) B
-      WHERE A.KPI_CD = B.KPI_CD
-      AND   A.COL_INDEX = B.COL_INDEX
-
-      UNION ALL
-
--- 3 LEVEL2
-      SELECT  A.COL_INDEX        AS COL_INDEX
-             ,A.SUBSDR_CD          AS SUBSDR_CD
-             ,'전년대비'        AS BASE_YYYYMM
-             ,A.KPI_CD             AS KPI_CD
-             ,CASE WHEN A.KPI_CD = 'SALE' THEN (B.AMOUNT - A.AMOUNT) / A.AMOUNT
-                   WHEN A.KPI_CD = 'COI'  THEN B.AMOUNT - A.AMOUNT END AS AMOUNT
-             ,'0'                  AS SORT_KEY
-             ,A.KOR_NM AS KOR_NM
-             ,A.ENG_NM AS ENG_NM
-      FROM   (
-              SELECT B.PROD_KOR_NM        AS COL_INDEX
-                    ,A.SUBSDR_CD          AS SUBSDR_CD
-                    ,A.BASE_YYYYMM        AS BASE_YYYYMM
-                    ,A.KPI_CD             AS KPI_CD
-                    ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-                    ,'1'                  AS SORT_KEY
-                    ,MIN(Z.KOR_NM) AS KOR_NM
-                    ,MIN(Z.ENG_NM) AS ENG_NM
-              FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-                   ,(SELECT ATTRIBUTE1    AS PROD_CD
-                           ,DISPLAY_NAME1 AS PROD_KOR_NM
-                           ,DISPLAY_NAME2 AS PROD_ENG_NM
-                     FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                     WHERE  CODE_TYPE = 'SMR_PROD_MST'
-                     AND    USE_FLAG  = 'Y'
-                     AND    ATTRIBUTE2= 'B2C_DIV'
-                    ) B
-                   ,(
-                     -- 제품
-                     SELECT 'PROD' AS CODE_TYPE
-                           ,A.DISPLAY_ORDER_SEQ AS DISP_SEQ
-                           ,A.ATTRIBUTE1          AS CODE
-                           ,A.DISPLAY_NAME1       AS KOR_NM
-                           ,A.DISPLAY_NAME2       AS ENG_NM
-                           ,A.ATTRIBUTE1          AS REF_CD
-                     FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER A
-                     WHERE  A.CODE_TYPE = 'SMR_PROD_MST'
-                     AND    A.USE_FLAG  = 'Y'
-                    ) Z
-              WHERE A.BASE_YYYYMM = TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
-              AND   A.SCENARIO_TYPE_CD = 'AC0'
-              AND   A.CAT_CD = 'BEP_SMART_PROD'
-              AND   A.KPI_CD in ('SALE', 'COI')
-              AND   A.SUBSDR_CD = P_SUBSDR_CD
-              AND   A.ATTRIBUTE3_VALUE = B.PROD_CD
-              AND   A.ATTRIBUTE3_VALUE = Z.CODE
-              GROUP BY B.PROD_KOR_NM
-                      ,A.SUBSDR_CD
-                      ,A.BASE_YYYYMM
-                      ,A.KPI_CD
-             ) A
-           ,(
-              SELECT B.PROD_KOR_NM        AS COL_INDEX
-                    ,A.SUBSDR_CD          AS SUBSDR_CD
-                    ,A.BASE_YYYYMM        AS BASE_YYYYMM
-                    ,A.KPI_CD             AS KPI_CD
-                    ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-                    ,'1'                  AS SORT_KEY
-              FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-                   ,(SELECT ATTRIBUTE1    AS PROD_CD
-                           ,DISPLAY_NAME1 AS PROD_KOR_NM
-                           ,DISPLAY_NAME2 AS PROD_ENG_NM
-                     FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                     WHERE  CODE_TYPE = 'SMR_PROD_MST'
-                     AND    USE_FLAG  = 'Y'
-                     AND    ATTRIBUTE2= 'B2C_DIV'
-                    ) B
-              WHERE A.BASE_YYYYMM = P_BASIS_YYYYMM
-              AND   A.SCENARIO_TYPE_CD = 'AC0'
-              AND   A.CAT_CD = 'BEP_SMART_PROD'
-              AND   A.KPI_CD in ('SALE', 'COI')
-              AND   A.SUBSDR_CD = P_SUBSDR_CD
-              AND   A.ATTRIBUTE3_VALUE = B.PROD_CD
-              GROUP BY B.PROD_KOR_NM
-                      ,A.SUBSDR_CD
-                      ,A.BASE_YYYYMM
-                      ,A.KPI_CD
-            ) B
-      WHERE A.KPI_CD = B.KPI_CD
-      AND   A.COL_INDEX = B.COL_INDEX
-
-      UNION ALL
-
--- 4 LEVEL3
-
-      SELECT  A.COL_INDEX        AS COL_INDEX
-             ,A.SUBSDR_CD          AS SUBSDR_CD
-             ,'전년대비'        AS BASE_YYYYMM
-             ,A.KPI_CD             AS KPI_CD
-             ,CASE WHEN A.KPI_CD = 'SALE' THEN (B.AMOUNT - A.AMOUNT) / A.AMOUNT
-                   WHEN A.KPI_CD = 'COI'  THEN B.AMOUNT - A.AMOUNT END AS AMOUNT
-             ,'0'                  AS SORT_KEY
-             ,A.KOR_NM AS KOR_NM
-             ,A.ENG_NM AS ENG_NM
-      FROM   (
-              SELECT B.PROD_KOR_NM        AS COL_INDEX
-                    ,A.SUBSDR_CD          AS SUBSDR_CD
-                    ,A.BASE_YYYYMM        AS BASE_YYYYMM
-                    ,A.KPI_CD             AS KPI_CD
-                    ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-                    ,'1'                  AS SORT_KEY
-                    ,MIN(Z.KOR_NM) AS KOR_NM
-                    ,MIN(Z.ENG_NM) AS ENG_NM
-              FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-                   ,(SELECT ATTRIBUTE1    AS PROD_CD
-                           ,DISPLAY_NAME1 AS PROD_KOR_NM
-                           ,DISPLAY_NAME2 AS PROD_ENG_NM
-                     FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                     WHERE  CODE_TYPE = 'SMR_PROD_MST'
-                     AND    USE_FLAG  = 'Y'
-                     AND    ATTRIBUTE2= 'B2C_DIV'
-                    ) B
-                   ,(
-                     -- 제품
-                     SELECT 'PROD' AS CODE_TYPE
-                           ,A.DISPLAY_ORDER_SEQ AS DISP_SEQ
-                           ,A.ATTRIBUTE1          AS CODE
-                           ,A.DISPLAY_NAME1       AS KOR_NM
-                           ,A.DISPLAY_NAME2       AS ENG_NM
-                           ,A.ATTRIBUTE1          AS REF_CD
-                     FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER A
-                     WHERE  A.CODE_TYPE = 'SMR_PROD_MST'
-                     AND    A.USE_FLAG  = 'Y'
-                    ) Z
-              WHERE A.BASE_YYYYMM = TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
-              AND   A.SCENARIO_TYPE_CD = 'AC0'
-              AND   A.CAT_CD = 'BEP_SMART_PROD'
-              AND   A.KPI_CD in ('SALE', 'COI')
-              AND   A.SUBSDR_CD = P_SUBSDR_CD
-              AND   A.ATTRIBUTE4_VALUE = B.PROD_CD
-              AND   A.ATTRIBUTE4_VALUE = Z.CODE
-              GROUP BY B.PROD_KOR_NM
-                      ,A.SUBSDR_CD
-                      ,A.BASE_YYYYMM
-                      ,A.KPI_CD
-             ) A
-           ,(
-              SELECT B.PROD_KOR_NM        AS COL_INDEX
-                    ,A.SUBSDR_CD          AS SUBSDR_CD
-                    ,A.BASE_YYYYMM        AS BASE_YYYYMM
-                    ,A.KPI_CD             AS KPI_CD
-                    ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-                    ,'1'                  AS SORT_KEY
-              FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-                   ,(SELECT ATTRIBUTE1    AS PROD_CD
-                           ,DISPLAY_NAME1 AS PROD_KOR_NM
-                           ,DISPLAY_NAME2 AS PROD_ENG_NM
-                     FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                     WHERE  CODE_TYPE = 'SMR_PROD_MST'
-                     AND    USE_FLAG  = 'Y'
-                     AND    ATTRIBUTE2= 'B2C_DIV'
-                    ) B
-              WHERE A.BASE_YYYYMM = P_BASIS_YYYYMM
-              AND   A.SCENARIO_TYPE_CD = 'AC0'
-              AND   A.CAT_CD = 'BEP_SMART_PROD'
-              AND   A.KPI_CD in ('SALE', 'COI')
-              AND   A.SUBSDR_CD = P_SUBSDR_CD
-              AND   A.ATTRIBUTE4_VALUE = B.PROD_CD
-              GROUP BY B.PROD_KOR_NM
-                      ,A.SUBSDR_CD
-                      ,A.BASE_YYYYMM
-                      ,A.KPI_CD
-            ) B
-      WHERE A.KPI_CD = B.KPI_CD
-      AND   A.COL_INDEX = B.COL_INDEX
-
-      UNION ALL
-
--- 전년누적
--- 1.법인합계
-      SELECT '1.법인합계'         AS COL_INDEX
-            ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,MIN(BASE_YYYYMM)||'-'||MAX(BASE_YYYYMM)        AS BASE_YYYYMM
-            ,A.KPI_CD             AS KPI_CD
-            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-            ,'0'                  AS SORT_KEY
-            ,'합계'  AS KOR_NM
-            ,'TOTAL' AS ENG_NM
-      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-      WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||'01' AND TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
-      AND    A.SCENARIO_TYPE_CD = 'AC0'
-      AND    A.CAT_CD = 'BEP_SMART_DIV'
-      AND    A.KPI_CD in ('SALE', 'COI')
-      AND    A.SUBSDR_CD = P_SUBSDR_CD
-      AND    A.DIV_CD    = 'GBU'
-      GROUP BY A.SUBSDR_CD
-              ,A.BASE_YYYYMM
-              ,A.KPI_CD
-
-      UNION ALL
-
--- 2.사업부합계
-      SELECT B.DISP_NM            AS COL_INDEX
-            ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,MIN(BASE_YYYYMM)||'-'||MAX(BASE_YYYYMM)        AS BASE_YYYYMM
-            ,A.KPI_CD             AS KPI_CD
-            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-            ,'1'                  AS SORT_KEY
-            ,MIN(Z.KOR_NM) AS KOR_NM
-            ,MIN(Z.ENG_NM) AS ENG_NM
-      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+      FROM   IPTDW.IPTDW_RES_KPI_DIV_S A
            ,(SELECT DIVISION_CODE AS DIV_CD
                    ,CASE WHEN DIVISION_CODE = 'GLT' THEN 'HE LCD TV'
                          WHEN DIVISION_CODE = 'MST' THEN 'MC 단말'
@@ -562,41 +104,39 @@ BEGIN
                     ,A.DIVISION_NAME     AS ENG_NM
                     ,A.COMPANY_CODE      AS REF_CD
               FROM   IPTDW.IPTDW_RES_DIM_COMM_DIVISION A
-              WHERE  A.BASIS_YYYYMM = '201601'
+              WHERE  A.BASIS_YYYYMM = P_BASIS_YYYYMM
               AND    A.USE_FLAG = 'Y'
              ) Z
-      WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||'01' AND TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
-      AND   A.SCENARIO_TYPE_CD = 'AC0'
-      AND   A.CAT_CD = 'BEP_SMART_DIV'
-      AND   A.KPI_CD in ('SALE', 'COI')
-      AND   A.SUBSDR_CD = P_SUBSDR_CD
-      AND   A.DIV_CD IN ('GLT','MST','CNT','DFT','DGT')
-      AND   A.DIV_CD = B.DIV_CD
-      AND   A.DIV_CD = Z.CODE
+      WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 2 YEAR, 'YYYY')||'01' AND P_BASIS_YYYYMM
+      AND    A.SUBSDR_CD      = P_SUBSDR_CD
+      AND    A.LDGR_TYPE_CD   = '1'
+      AND    A.SUBSDR_TYPE_CD = 'S'
+      AND    A.ACCT_CD        IN ('41000000','549999PL')
+      AND    A.SCENARIO_TYPE_CD IN ('AC0')
+      AND    A.DIV_CD = Z.CODE
+      AND    A.DIV_CD IN ('GLT','MST','CNT','DFT','DGT')
+      AND    A.DIV_CD = B.DIV_CD
       GROUP BY B.DISP_NM
               ,A.SUBSDR_CD
               ,A.BASE_YYYYMM
-              ,A.KPI_CD
-
+              ,A.ACCT_CD
+-- 3. 제품별
       UNION ALL
-
--- 3 LEVEL2
-      SELECT B.PROD_KOR_NM        AS COL_INDEX
+      SELECT Z.KOR_NM             AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,MIN(BASE_YYYYMM)||'-'||MAX(BASE_YYYYMM)        AS BASE_YYYYMM
+            ,A.BASE_YYYYMM        AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
             ,SUM(A.CURRM_USD_AMT) AS AMOUNT
             ,'1'                  AS SORT_KEY
             ,MIN(Z.KOR_NM) AS KOR_NM
             ,MIN(Z.ENG_NM) AS ENG_NM
       FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-           ,(SELECT ATTRIBUTE1    AS PROD_CD
-                   ,DISPLAY_NAME1 AS PROD_KOR_NM
-                   ,DISPLAY_NAME2 AS PROD_ENG_NM
-             FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-             WHERE  CODE_TYPE = 'SMR_PROD_MST'
-             AND    USE_FLAG  = 'Y'
-             AND    ATTRIBUTE2= 'B2C_DIV'
+           ,(SELECT CODE_ID DIV_CD
+                   ,CODE_NAME
+                   ,ATTRIBUTE1 KOR_NM
+                   ,ATTRIBUTE2 ENG_NM
+             FROM   IPTDW.IPTDW_RES_DIM_CODES
+             WHERE  CODE_TYPE = 'B2C_DIV'
             ) B
             ,(
               -- 제품
@@ -610,98 +150,309 @@ BEGIN
               WHERE  A.CODE_TYPE = 'SMR_PROD_MST'
               AND    A.USE_FLAG  = 'Y'
              ) Z
-      WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||'01' AND TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
+      WHERE A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 2 YEAR, 'YYYY')||'01' AND P_BASIS_YYYYMM
       AND   A.SCENARIO_TYPE_CD = 'AC0'
-      AND   A.CAT_CD = 'BEP_SMART_PROD'
+      AND   A.CAT_CD = 'BEP_SMART_PR'
       AND   A.KPI_CD in ('SALE', 'COI')
       AND   A.SUBSDR_CD = P_SUBSDR_CD
-      AND   A.ATTRIBUTE3_VALUE = B.PROD_CD
-      AND   A.ATTRIBUTE3_VALUE = Z.CODE
-      GROUP BY B.PROD_KOR_NM
+      AND   A.SUB_CAT_CD = Z.CODE
+      AND   B.DIV_CD = SUBSTR(Z.CODE,1,3)
+      GROUP BY Z.KOR_NM
               ,A.SUBSDR_CD
               ,A.BASE_YYYYMM
               ,A.KPI_CD
-
-
+-- 전년대비
       UNION ALL
-
--- 4 LEVEL3
-      SELECT B.PROD_KOR_NM        AS COL_INDEX
+-- 1.법인합계
+      SELECT '1.법인합계'        AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,MIN(BASE_YYYYMM)||'-'||MAX(BASE_YYYYMM)        AS BASE_YYYYMM
+            ,'전년대비'        AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
-            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-            ,'1'                  AS SORT_KEY
-            ,MIN(Z.KOR_NM) AS KOR_NM
-            ,MIN(Z.ENG_NM) AS ENG_NM
-      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-           ,(SELECT ATTRIBUTE1    AS PROD_CD
-                   ,DISPLAY_NAME1 AS PROD_KOR_NM
-                   ,DISPLAY_NAME2 AS PROD_ENG_NM
-             FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-             WHERE  CODE_TYPE = 'SMR_PROD_MST'
-             AND    USE_FLAG  = 'Y'
-             AND    ATTRIBUTE2= 'B2C_DIV'
+            ,CASE WHEN A.KPI_CD = 'SALE' THEN (B.AMOUNT - A.AMOUNT) / A.AMOUNT
+                  WHEN A.KPI_CD = 'COI'  THEN B.AMOUNT - A.AMOUNT END AS AMOUNT
+            ,'0'                  AS SORT_KEY
+            ,'합계'  AS KOR_NM
+            ,'TOTAL' AS ENG_NM
+      FROM   (
+              SELECT '전년'        AS COL_INDEX
+                    ,A.SUBSDR_CD          AS SUBSDR_CD
+                    ,A.BASE_YYYYMM        AS BASE_YYYYMM
+                    ,CASE A.ACCT_CD
+                          WHEN '41000000' THEN 'SALE'
+                          WHEN '549999PL' THEN 'COI' END AS KPI_CD
+                    ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+                    ,'0'                  AS SORT_KEY
+              FROM   IPTDW.IPTDW_RES_KPI_DIV_S A
+              WHERE  A.BASE_YYYYMM = TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
+              AND    A.DIV_CD         = 'ALL'
+              AND    A.SUBSDR_CD      = P_SUBSDR_CD
+              AND    A.LDGR_TYPE_CD   = '1'
+              AND    A.SUBSDR_TYPE_CD = 'S'
+              AND    A.ACCT_CD        IN ('41000000','549999PL')
+              AND    A.SCENARIO_TYPE_CD IN ('AC0')
+              GROUP BY A.SUBSDR_CD
+                      ,A.BASE_YYYYMM
+                      ,A.ACCT_CD
+
+             ) A
+           ,(
+              SELECT '금년'        AS COL_INDEX
+                    ,A.SUBSDR_CD          AS SUBSDR_CD
+                    ,A.BASE_YYYYMM        AS BASE_YYYYMM
+                    ,CASE A.ACCT_CD
+                          WHEN '41000000' THEN 'SALE'
+                          WHEN '549999PL' THEN 'COI' END AS KPI_CD
+                    ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+                    ,'0'                  AS SORT_KEY
+              FROM   IPTDW.IPTDW_RES_KPI_DIV_S A
+              WHERE  A.BASE_YYYYMM    = P_BASIS_YYYYMM
+              AND    A.DIV_CD         = 'ALL'
+              AND    A.SUBSDR_CD      = P_SUBSDR_CD
+              AND    A.LDGR_TYPE_CD   = '1'
+              AND    A.SUBSDR_TYPE_CD = 'S'
+              AND    A.ACCT_CD        IN ('41000000','549999PL')
+              AND    A.SCENARIO_TYPE_CD IN ('AC0')
+              GROUP BY A.SUBSDR_CD
+                      ,A.BASE_YYYYMM
+                      ,A.ACCT_CD
             ) B
-            ,(
-              -- 제품
-              SELECT 'PROD' AS CODE_TYPE
-                    ,A.DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    ,A.ATTRIBUTE1          AS CODE
-                    ,A.DISPLAY_NAME1       AS KOR_NM
-                    ,A.DISPLAY_NAME2       AS ENG_NM
-                    ,A.ATTRIBUTE1          AS REF_CD
-              FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER A
-              WHERE  A.CODE_TYPE = 'SMR_PROD_MST'
-              AND    A.USE_FLAG  = 'Y'
-             ) Z
-      WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||'01' AND TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
-      AND   A.SCENARIO_TYPE_CD = 'AC0'
-      AND   A.CAT_CD = 'BEP_SMART_PROD'
-      AND   A.KPI_CD in ('SALE', 'COI')
-      AND   A.SUBSDR_CD = P_SUBSDR_CD
-      AND   A.ATTRIBUTE4_VALUE = B.PROD_CD
-      AND   A.ATTRIBUTE4_VALUE = Z.CODE
-      GROUP BY B.PROD_KOR_NM
-              ,A.SUBSDR_CD
-              ,A.BASE_YYYYMM
-              ,A.KPI_CD
+      WHERE A.KPI_CD = B.KPI_CD
 
       UNION ALL
 
--- 누적금년
+-- 2.사업부합계
+      SELECT  A.COL_INDEX        AS COL_INDEX
+             ,A.SUBSDR_CD          AS SUBSDR_CD
+             ,'전년대비'        AS BASE_YYYYMM
+             ,A.KPI_CD             AS KPI_CD
+             ,CASE WHEN A.KPI_CD = 'SALE' THEN (B.AMOUNT - A.AMOUNT) / A.AMOUNT
+                   WHEN A.KPI_CD = 'COI'  THEN B.AMOUNT - A.AMOUNT END AS AMOUNT
+             ,'0'                  AS SORT_KEY
+             ,A.KOR_NM AS KOR_NM
+             ,A.ENG_NM AS ENG_NM
+      FROM   (
+              SELECT B.DISP_NM            AS COL_INDEX
+                    ,A.SUBSDR_CD          AS SUBSDR_CD
+                    ,A.BASE_YYYYMM        AS BASE_YYYYMM
+                    ,CASE A.ACCT_CD
+                          WHEN '41000000' THEN 'SALE'
+                          WHEN '549999PL' THEN 'COI' END AS KPI_CD
+                    ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+                    ,'1'                  AS SORT_KEY
+                    ,MIN(Z.KOR_NM) AS KOR_NM
+                    ,MIN(Z.ENG_NM) AS ENG_NM
+              FROM   IPTDW.IPTDW_RES_KPI_DIV_S A
+                   ,(SELECT DIVISION_CODE AS DIV_CD
+                           ,CASE WHEN DIVISION_CODE = 'GLT' THEN 'HE LCD TV'
+                                 WHEN DIVISION_CODE = 'MST' THEN 'MC 단말'
+                                 WHEN DIVISION_CODE = 'CNT' THEN 'H&A 냉장고'
+                                 ELSE DISPLAY_NAME END AS DISP_NM
+                     FROM   IPTDW.IPTDW_RES_DIM_COMM_DIVISION
+                     WHERE  USE_FLAG = 'Y'
+                     AND    BASIS_YYYYMM = P_BASIS_YYYYMM
+                     AND    DIVISION_CODE IN ('GLT','MST','CNT','DFT','DGT')
+                    ) B
+                    ,(
+                      -- 사업부
+                      SELECT 'DIV' AS CODE_TYPE
+                            ,A.DISPLAY_ORDER_SEQ AS DISP_SEQ
+                            ,A.DIVISION_CODE     AS CODE
+                            ,A.DISPLAY_NAME      AS KOR_NM
+                            ,A.DIVISION_NAME     AS ENG_NM
+                            ,A.COMPANY_CODE      AS REF_CD
+                      FROM   IPTDW.IPTDW_RES_DIM_COMM_DIVISION A
+                      WHERE  A.BASIS_YYYYMM = P_BASIS_YYYYMM
+                      AND    A.USE_FLAG = 'Y'
+                     ) Z
+              WHERE A.BASE_YYYYMM = TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
+              AND    A.SUBSDR_CD      = P_SUBSDR_CD
+              AND    A.LDGR_TYPE_CD   = '1'
+              AND    A.SUBSDR_TYPE_CD = 'S'
+              AND    A.ACCT_CD        IN ('41000000','549999PL')
+              AND    A.SCENARIO_TYPE_CD IN ('AC0')
+              AND    A.DIV_CD = Z.CODE
+              AND    A.DIV_CD IN ('GLT','MST','CNT','DFT','DGT')
+              AND    A.DIV_CD = B.DIV_CD
+              GROUP BY B.DISP_NM
+                      ,A.SUBSDR_CD
+                      ,A.BASE_YYYYMM
+                      ,A.ACCT_CD
+             ) A
+           ,(
+              SELECT B.DISP_NM            AS COL_INDEX
+                    ,A.SUBSDR_CD          AS SUBSDR_CD
+                    ,A.BASE_YYYYMM        AS BASE_YYYYMM
+                    ,CASE A.ACCT_CD
+                          WHEN '41000000' THEN 'SALE'
+                          WHEN '549999PL' THEN 'COI' END AS KPI_CD
+                    ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+                    ,'1'                  AS SORT_KEY
+              FROM   IPTDW.IPTDW_RES_KPI_DIV_S A
+                   ,(SELECT DIVISION_CODE AS DIV_CD
+                           ,CASE WHEN DIVISION_CODE = 'GLT' THEN 'HE LCD TV'
+                                 WHEN DIVISION_CODE = 'MST' THEN 'MC 단말'
+                                 WHEN DIVISION_CODE = 'CNT' THEN 'H&A 냉장고'
+                                 ELSE DISPLAY_NAME END AS DISP_NM
+                     FROM   IPTDW.IPTDW_RES_DIM_COMM_DIVISION
+                     WHERE  USE_FLAG = 'Y'
+                     AND    BASIS_YYYYMM = P_BASIS_YYYYMM
+                     AND    DIVISION_CODE IN ('GLT','MST','CNT','DFT','DGT')
+                    ) B
+              WHERE  A.BASE_YYYYMM    = P_BASIS_YYYYMM
+              AND    A.SUBSDR_CD      = P_SUBSDR_CD
+              AND    A.LDGR_TYPE_CD   = '1'
+              AND    A.SUBSDR_TYPE_CD = 'S'
+              AND    A.ACCT_CD        IN ('41000000','549999PL')
+              AND    A.SCENARIO_TYPE_CD IN ('AC0')
+              AND    A.DIV_CD IN ('GLT','MST','CNT','DFT','DGT')
+              AND    A.DIV_CD = B.DIV_CD
+              GROUP BY B.DISP_NM
+                      ,A.SUBSDR_CD
+                      ,A.BASE_YYYYMM
+                      ,A.ACCT_CD
+            ) B
+      WHERE A.KPI_CD = B.KPI_CD
+      AND   A.COL_INDEX = B.COL_INDEX
+
+      UNION ALL
+
+-- 3. 제품별
+      SELECT  A.COL_INDEX        AS COL_INDEX
+             ,A.SUBSDR_CD          AS SUBSDR_CD
+             ,'전년대비'        AS BASE_YYYYMM
+             ,A.KPI_CD             AS KPI_CD
+             ,CASE WHEN A.KPI_CD = 'SALE' THEN (B.AMOUNT - A.AMOUNT) / A.AMOUNT
+                   WHEN A.KPI_CD = 'COI'  THEN B.AMOUNT - A.AMOUNT END AS AMOUNT
+             ,'0'                  AS SORT_KEY
+             ,A.KOR_NM AS KOR_NM
+             ,A.ENG_NM AS ENG_NM
+      FROM   (
+              SELECT Z.KOR_NM             AS COL_INDEX
+                    ,A.SUBSDR_CD          AS SUBSDR_CD
+                    ,A.BASE_YYYYMM        AS BASE_YYYYMM
+                    ,A.KPI_CD             AS KPI_CD
+                    ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+                    ,'1'                  AS SORT_KEY
+                    ,MIN(Z.KOR_NM) AS KOR_NM
+                    ,MIN(Z.ENG_NM) AS ENG_NM
+              FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+                   ,(SELECT CODE_ID DIV_CD
+                           ,CODE_NAME
+                           ,ATTRIBUTE1 KOR_NM
+                           ,ATTRIBUTE2 ENG_NM
+                     FROM   IPTDW.IPTDW_RES_DIM_CODES
+                     WHERE  CODE_TYPE = 'B2C_DIV'
+                    ) B
+                    ,(
+                      -- 제품
+                      SELECT 'PROD' AS CODE_TYPE
+                            ,A.DISPLAY_ORDER_SEQ AS DISP_SEQ
+                            ,A.ATTRIBUTE1          AS CODE
+                            ,A.DISPLAY_NAME1       AS KOR_NM
+                            ,A.DISPLAY_NAME2       AS ENG_NM
+                            ,A.ATTRIBUTE1          AS REF_CD
+                      FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER A
+                      WHERE  A.CODE_TYPE = 'SMR_PROD_MST'
+                      AND    A.USE_FLAG  = 'Y'
+                     ) Z
+              WHERE A.BASE_YYYYMM = TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
+              AND   A.SCENARIO_TYPE_CD = 'AC0'
+              AND   A.CAT_CD = 'BEP_SMART_PR'
+              AND   A.KPI_CD in ('SALE', 'COI')
+              AND   A.SUBSDR_CD = P_SUBSDR_CD
+              AND   A.SUB_CAT_CD = Z.CODE
+              AND   B.DIV_CD = SUBSTR(Z.CODE,1,3)
+              GROUP BY Z.KOR_NM
+                      ,A.SUBSDR_CD
+                      ,A.BASE_YYYYMM
+                      ,A.KPI_CD
+
+             ) A
+           ,(
+              SELECT Z.KOR_NM             AS COL_INDEX
+                    ,A.SUBSDR_CD          AS SUBSDR_CD
+                    ,A.BASE_YYYYMM        AS BASE_YYYYMM
+                    ,A.KPI_CD             AS KPI_CD
+                    ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+                    ,'1'                  AS SORT_KEY
+                    ,MIN(Z.KOR_NM) AS KOR_NM
+                    ,MIN(Z.ENG_NM) AS ENG_NM
+              FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+                   ,(SELECT CODE_ID DIV_CD
+                           ,CODE_NAME
+                           ,ATTRIBUTE1 KOR_NM
+                           ,ATTRIBUTE2 ENG_NM
+                     FROM   IPTDW.IPTDW_RES_DIM_CODES
+                     WHERE  CODE_TYPE = 'B2C_DIV'
+                    ) B
+                    ,(
+                      -- 제품
+                      SELECT 'PROD' AS CODE_TYPE
+                            ,A.DISPLAY_ORDER_SEQ AS DISP_SEQ
+                            ,A.ATTRIBUTE1          AS CODE
+                            ,A.DISPLAY_NAME1       AS KOR_NM
+                            ,A.DISPLAY_NAME2       AS ENG_NM
+                            ,A.ATTRIBUTE1          AS REF_CD
+                      FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER A
+                      WHERE  A.CODE_TYPE = 'SMR_PROD_MST'
+                      AND    A.USE_FLAG  = 'Y'
+                     ) Z
+              WHERE A.BASE_YYYYMM = P_BASIS_YYYYMM
+              AND   A.SCENARIO_TYPE_CD = 'AC0'
+              AND   A.CAT_CD = 'BEP_SMART_PR'
+              AND   A.KPI_CD in ('SALE', 'COI')
+              AND   A.SUBSDR_CD = P_SUBSDR_CD
+              AND   A.SUB_CAT_CD = Z.CODE
+              AND   B.DIV_CD = SUBSTR(Z.CODE,1,3)
+              GROUP BY Z.KOR_NM
+                      ,A.SUBSDR_CD
+                      ,A.BASE_YYYYMM
+                      ,A.KPI_CD
+
+            ) B
+      WHERE A.KPI_CD = B.KPI_CD
+      AND   A.COL_INDEX = B.COL_INDEX
+
+      UNION ALL
+
+-- 전년누적
 -- 1.법인합계
       SELECT '1.법인합계'         AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,MIN(BASE_YYYYMM)||'-'||MAX(BASE_YYYYMM)        AS BASE_YYYYMM
-            ,A.KPI_CD             AS KPI_CD
+            ,MIN(A.BASE_YYYYMM)||'-'||MAX(A.BASE_YYYYMM)        AS BASE_YYYYMM
+            ,CASE A.ACCT_CD
+                  WHEN '41000000' THEN 'SALE'
+                  WHEN '549999PL' THEN 'COI' END AS KPI_CD
             ,SUM(A.CURRM_USD_AMT) AS AMOUNT
             ,'0'                  AS SORT_KEY
             ,'합계'  AS KOR_NM
             ,'TOTAL' AS ENG_NM
-      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-      WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 0 YEAR, 'YYYY')||'01' AND TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 0 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
-      AND    A.SCENARIO_TYPE_CD = 'AC0'
-      AND    A.CAT_CD = 'BEP_SMART_DIV'
-      AND    A.KPI_CD in ('SALE', 'COI')
-      AND    A.SUBSDR_CD = P_SUBSDR_CD
-      AND    A.DIV_CD    = 'GBU'
+      FROM   IPTDW.IPTDW_RES_KPI_DIV_S A
+      WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||'01' AND TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
+      AND    A.DIV_CD         = 'ALL'
+      AND    A.SUBSDR_CD      = P_SUBSDR_CD
+      AND    A.LDGR_TYPE_CD   = '1'
+      AND    A.SUBSDR_TYPE_CD = 'S'
+--      AND    A.KPI_TYPE_CD    = 'TB'
+      AND    A.ACCT_CD        IN ('41000000','549999PL')
+      AND    A.SCENARIO_TYPE_CD IN ('AC0')
       GROUP BY A.SUBSDR_CD
-              ,A.BASE_YYYYMM
-              ,A.KPI_CD
+              ,A.ACCT_CD
 
       UNION ALL
 
 -- 2.사업부합계
       SELECT B.DISP_NM            AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,MIN(BASE_YYYYMM)||'-'||MAX(BASE_YYYYMM)        AS BASE_YYYYMM
-            ,A.KPI_CD             AS KPI_CD
+            ,MIN(A.BASE_YYYYMM)||'-'||MAX(A.BASE_YYYYMM)        AS BASE_YYYYMM
+            ,CASE A.ACCT_CD
+                  WHEN '41000000' THEN 'SALE'
+                  WHEN '549999PL' THEN 'COI' END AS KPI_CD
             ,SUM(A.CURRM_USD_AMT) AS AMOUNT
             ,'1'                  AS SORT_KEY
             ,MIN(Z.KOR_NM) AS KOR_NM
             ,MIN(Z.ENG_NM) AS ENG_NM
-      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+      FROM   IPTDW.IPTDW_RES_KPI_DIV_S A
            ,(SELECT DIVISION_CODE AS DIV_CD
                    ,CASE WHEN DIVISION_CODE = 'GLT' THEN 'HE LCD TV'
                          WHEN DIVISION_CODE = 'MST' THEN 'MC 단말'
@@ -709,7 +460,7 @@ BEGIN
                          ELSE DISPLAY_NAME END AS DISP_NM
              FROM   IPTDW.IPTDW_RES_DIM_COMM_DIVISION
              WHERE  USE_FLAG = 'Y'
-             AND    BASIS_YYYYMM = '201601'
+             AND    BASIS_YYYYMM = P_BASIS_YYYYMM
              AND    DIVISION_CODE IN ('GLT','MST','CNT','DFT','DGT')
             ) B
             ,(
@@ -721,41 +472,155 @@ BEGIN
                     ,A.DIVISION_NAME     AS ENG_NM
                     ,A.COMPANY_CODE      AS REF_CD
               FROM   IPTDW.IPTDW_RES_DIM_COMM_DIVISION A
-              WHERE  A.BASIS_YYYYMM = '201601'
+              WHERE  A.BASIS_YYYYMM = P_BASIS_YYYYMM
+              AND    A.USE_FLAG = 'Y'
+             ) Z
+      WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||'01' AND TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
+      AND    A.SUBSDR_CD      = P_SUBSDR_CD
+      AND    A.LDGR_TYPE_CD   = '1'
+      AND    A.SUBSDR_TYPE_CD = 'S'
+      AND    A.ACCT_CD        IN ('41000000','549999PL')
+      AND    A.SCENARIO_TYPE_CD IN ('AC0')
+      AND    A.DIV_CD = Z.CODE
+      AND    A.DIV_CD IN ('GLT','MST','CNT','DFT','DGT')
+      AND    A.DIV_CD = B.DIV_CD
+      GROUP BY B.DISP_NM
+              ,A.SUBSDR_CD
+              ,A.ACCT_CD
+      UNION ALL
+
+-- 3. 제품별
+      SELECT Z.KOR_NM             AS COL_INDEX
+            ,A.SUBSDR_CD          AS SUBSDR_CD
+            ,MIN(A.BASE_YYYYMM)||'-'||MAX(A.BASE_YYYYMM)        AS BASE_YYYYMM
+            ,A.KPI_CD             AS KPI_CD
+            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+            ,'1'                  AS SORT_KEY
+            ,MIN(Z.KOR_NM) AS KOR_NM
+            ,MIN(Z.ENG_NM) AS ENG_NM
+      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+           ,(SELECT CODE_ID DIV_CD
+                   ,CODE_NAME
+                   ,ATTRIBUTE1 KOR_NM
+                   ,ATTRIBUTE2 ENG_NM
+             FROM   IPTDW.IPTDW_RES_DIM_CODES
+             WHERE  CODE_TYPE = 'B2C_DIV'
+            ) B
+            ,(
+              -- 제품
+              SELECT 'PROD' AS CODE_TYPE
+                    ,A.DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    ,A.ATTRIBUTE1          AS CODE
+                    ,A.DISPLAY_NAME1       AS KOR_NM
+                    ,A.DISPLAY_NAME2       AS ENG_NM
+                    ,A.ATTRIBUTE1          AS REF_CD
+              FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER A
+              WHERE  A.CODE_TYPE = 'SMR_PROD_MST'
+              AND    A.USE_FLAG  = 'Y'
+             ) Z
+      WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||'01' AND TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 1 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
+      AND   A.SCENARIO_TYPE_CD = 'AC0'
+      AND   A.CAT_CD = 'BEP_SMART_PR'
+      AND   A.KPI_CD in ('SALE', 'COI')
+      AND   A.SUBSDR_CD = P_SUBSDR_CD
+      AND   A.SUB_CAT_CD = Z.CODE
+      AND   B.DIV_CD = SUBSTR(Z.CODE,1,3)
+      GROUP BY Z.KOR_NM
+              ,A.SUBSDR_CD
+              ,A.KPI_CD
+
+      UNION ALL
+
+-- 누적금년
+-- 1.법인합계
+      SELECT '1.법인합계'         AS COL_INDEX
+            ,A.SUBSDR_CD          AS SUBSDR_CD
+            ,MIN(A.BASE_YYYYMM)||'-'||MAX(A.BASE_YYYYMM)        AS BASE_YYYYMM
+            ,CASE A.ACCT_CD
+                  WHEN '41000000' THEN 'SALE'
+                  WHEN '549999PL' THEN 'COI' END AS KPI_CD
+            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+            ,'0'                  AS SORT_KEY
+            ,'합계'  AS KOR_NM
+            ,'TOTAL' AS ENG_NM
+      FROM   IPTDW.IPTDW_RES_KPI_DIV_S A
+      WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 0 YEAR, 'YYYY')||'01' AND TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 0 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
+      AND    A.DIV_CD         = 'ALL'
+      AND    A.SUBSDR_CD      = P_SUBSDR_CD
+      AND    A.LDGR_TYPE_CD   = '1'
+      AND    A.SUBSDR_TYPE_CD = 'S'
+--      AND    A.KPI_TYPE_CD    = 'TB'
+      AND    A.ACCT_CD        IN ('41000000','549999PL')
+      AND    A.SCENARIO_TYPE_CD IN ('AC0')
+      GROUP BY A.SUBSDR_CD
+              ,A.ACCT_CD
+
+      UNION ALL
+
+-- 2.사업부합계
+      SELECT B.DISP_NM            AS COL_INDEX
+            ,A.SUBSDR_CD          AS SUBSDR_CD
+            ,MIN(A.BASE_YYYYMM)||'-'||MAX(A.BASE_YYYYMM)        AS BASE_YYYYMM
+            ,CASE A.ACCT_CD
+                  WHEN '41000000' THEN 'SALE'
+                  WHEN '549999PL' THEN 'COI' END AS KPI_CD
+            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
+            ,'1'                  AS SORT_KEY
+            ,MIN(Z.KOR_NM) AS KOR_NM
+            ,MIN(Z.ENG_NM) AS ENG_NM
+      FROM   IPTDW.IPTDW_RES_KPI_DIV_S A
+           ,(SELECT DIVISION_CODE AS DIV_CD
+                   ,CASE WHEN DIVISION_CODE = 'GLT' THEN 'HE LCD TV'
+                         WHEN DIVISION_CODE = 'MST' THEN 'MC 단말'
+                         WHEN DIVISION_CODE = 'CNT' THEN 'H&A 냉장고'
+                         ELSE DISPLAY_NAME END AS DISP_NM
+             FROM   IPTDW.IPTDW_RES_DIM_COMM_DIVISION
+             WHERE  USE_FLAG = 'Y'
+             AND    BASIS_YYYYMM = P_BASIS_YYYYMM
+             AND    DIVISION_CODE IN ('GLT','MST','CNT','DFT','DGT')
+            ) B
+            ,(
+              -- 사업부
+              SELECT 'DIV' AS CODE_TYPE
+                    ,A.DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    ,A.DIVISION_CODE     AS CODE
+                    ,A.DISPLAY_NAME      AS KOR_NM
+                    ,A.DIVISION_NAME     AS ENG_NM
+                    ,A.COMPANY_CODE      AS REF_CD
+              FROM   IPTDW.IPTDW_RES_DIM_COMM_DIVISION A
+              WHERE  A.BASIS_YYYYMM = P_BASIS_YYYYMM
               AND    A.USE_FLAG = 'Y'
              ) Z
       WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 0 YEAR, 'YYYY')||'01' AND TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 0 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
-      AND   A.SCENARIO_TYPE_CD = 'AC0'
-      AND   A.CAT_CD = 'BEP_SMART_DIV'
-      AND   A.KPI_CD in ('SALE', 'COI')
-      AND   A.SUBSDR_CD = P_SUBSDR_CD
-      AND   A.DIV_CD IN ('GLT','MST','CNT','DFT','DGT')
-      AND   A.DIV_CD = B.DIV_CD
-      AND   A.DIV_CD = Z.CODE
+      AND    A.SUBSDR_CD      = P_SUBSDR_CD
+      AND    A.LDGR_TYPE_CD   = '1'
+      AND    A.SUBSDR_TYPE_CD = 'S'
+      AND    A.ACCT_CD        IN ('41000000','549999PL')
+      AND    A.SCENARIO_TYPE_CD IN ('AC0')
+      AND    A.DIV_CD = Z.CODE
+      AND    A.DIV_CD IN ('GLT','MST','CNT','DFT','DGT')
+      AND    A.DIV_CD = B.DIV_CD
       GROUP BY B.DISP_NM
               ,A.SUBSDR_CD
-              ,A.BASE_YYYYMM
-              ,A.KPI_CD
-
+              ,A.ACCT_CD
       UNION ALL
 
--- 3 LEVEL2
-      SELECT B.PROD_KOR_NM        AS COL_INDEX
+-- 3. 제품별
+      SELECT Z.KOR_NM             AS COL_INDEX
             ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,MIN(BASE_YYYYMM)||'-'||MAX(BASE_YYYYMM)        AS BASE_YYYYMM
+            ,MIN(A.BASE_YYYYMM)||'-'||MAX(A.BASE_YYYYMM)        AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
             ,SUM(A.CURRM_USD_AMT) AS AMOUNT
             ,'1'                  AS SORT_KEY
             ,MIN(Z.KOR_NM) AS KOR_NM
             ,MIN(Z.ENG_NM) AS ENG_NM
       FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-           ,(SELECT ATTRIBUTE1    AS PROD_CD
-                   ,DISPLAY_NAME1 AS PROD_KOR_NM
-                   ,DISPLAY_NAME2 AS PROD_ENG_NM
-             FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-             WHERE  CODE_TYPE = 'SMR_PROD_MST'
-             AND    USE_FLAG  = 'Y'
-             AND    ATTRIBUTE2= 'B2C_DIV'
+           ,(SELECT CODE_ID DIV_CD
+                   ,CODE_NAME
+                   ,ATTRIBUTE1 KOR_NM
+                   ,ATTRIBUTE2 ENG_NM
+             FROM   IPTDW.IPTDW_RES_DIM_CODES
+             WHERE  CODE_TYPE = 'B2C_DIV'
             ) B
             ,(
               -- 제품
@@ -771,59 +636,13 @@ BEGIN
              ) Z
       WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 0 YEAR, 'YYYY')||'01' AND TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 0 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
       AND   A.SCENARIO_TYPE_CD = 'AC0'
-      AND   A.CAT_CD = 'BEP_SMART_PROD'
+      AND   A.CAT_CD = 'BEP_SMART_PR'
       AND   A.KPI_CD in ('SALE', 'COI')
       AND   A.SUBSDR_CD = P_SUBSDR_CD
-      AND   A.ATTRIBUTE3_VALUE = B.PROD_CD
-      AND   A.ATTRIBUTE3_VALUE = Z.CODE
-      GROUP BY B.PROD_KOR_NM
+      AND   A.SUB_CAT_CD = Z.CODE
+      AND   B.DIV_CD = SUBSTR(Z.CODE,1,3)
+      GROUP BY Z.KOR_NM
               ,A.SUBSDR_CD
-              ,A.BASE_YYYYMM
-              ,A.KPI_CD
-
-
-      UNION ALL
-
--- 4 LEVEL3
-      SELECT B.PROD_KOR_NM        AS COL_INDEX
-            ,A.SUBSDR_CD          AS SUBSDR_CD
-            ,MIN(BASE_YYYYMM)||'-'||MAX(BASE_YYYYMM)        AS BASE_YYYYMM
-            ,A.KPI_CD             AS KPI_CD
-            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-            ,'1'                  AS SORT_KEY
-            ,MIN(Z.KOR_NM) AS KOR_NM
-            ,MIN(Z.ENG_NM) AS ENG_NM
-      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-           ,(SELECT ATTRIBUTE1    AS PROD_CD
-                   ,DISPLAY_NAME1 AS PROD_KOR_NM
-                   ,DISPLAY_NAME2 AS PROD_ENG_NM
-             FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-             WHERE  CODE_TYPE = 'SMR_PROD_MST'
-             AND    USE_FLAG  = 'Y'
-             AND    ATTRIBUTE2= 'B2C_DIV'
-            ) B
-            ,(
-              -- 제품
-              SELECT 'PROD' AS CODE_TYPE
-                    ,A.DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    ,A.ATTRIBUTE1          AS CODE
-                    ,A.DISPLAY_NAME1       AS KOR_NM
-                    ,A.DISPLAY_NAME2       AS ENG_NM
-                    ,A.ATTRIBUTE1          AS REF_CD
-              FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER A
-              WHERE  A.CODE_TYPE = 'SMR_PROD_MST'
-              AND    A.USE_FLAG  = 'Y'
-             ) Z
-      WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 0 YEAR, 'YYYY')||'01' AND TO_CHAR(to_date(SUBSTR(P_BASIS_YYYYMM,1, 4), 'YYYY') - 0 YEAR, 'YYYY')||SUBSTR(P_BASIS_YYYYMM,5,2)
-      AND   A.SCENARIO_TYPE_CD = 'AC0'
-      AND   A.CAT_CD = 'BEP_SMART_PROD'
-      AND   A.KPI_CD in ('SALE', 'COI')
-      AND   A.SUBSDR_CD = P_SUBSDR_CD
-      AND   A.ATTRIBUTE4_VALUE = B.PROD_CD
-      AND   A.ATTRIBUTE4_VALUE = Z.CODE
-      GROUP BY B.PROD_KOR_NM
-              ,A.SUBSDR_CD
-              ,A.BASE_YYYYMM
               ,A.KPI_CD
 
     WITH UR;
