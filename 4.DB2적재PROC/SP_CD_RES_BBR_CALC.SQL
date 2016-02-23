@@ -1,7 +1,6 @@
-CREATE OR REPLACE PROCEDURE ETL_IDW.SP_CD_RES_SMR_B2B_BB_RATIO (
-     IN P_BASIS_YYYYMMDD VARCHAR(8),
-     IN P_SUBSDR_CD      VARCHAR(8)
-     )
+CREATE OR REPLACE PROCEDURE ETL_IDW.SP_CD_RES_BBR_CALC (
+    IN P_BASIS_YYYYMMDD VARCHAR(8)
+ )
   DYNAMIC RESULT SETS 1
   LANGUAGE SQL
   NOT DETERMINISTIC
@@ -11,24 +10,22 @@ CREATE OR REPLACE PROCEDURE ETL_IDW.SP_CD_RES_SMR_B2B_BB_RATIO (
   INHERIT SPECIAL REGISTERS
   OLD SAVEPOINT LEVEL
 BEGIN
-  /************************************************************************************************/
-  /* 1.프 로 젝 트 : ARES                                                                         */
-  /* 2.모       듈 :                                                                              */
-  /* 3.프로그램 ID : SP_CD_RES_SMR_B2B_BB_RATIO                                                   */
-  /* 4.설       명 : SMART 주차별Trend(BB RATIO)을 Result Set으로 return함                        */
-  /* 5.입 력 변 수 :                                                                              */
-  /*                 IN P_BASIS_YYYYMMDD( 기준일 )                                                */
-  /*                 IN P_SUBSDR_CD( 법인코드 )                                                   */
-  /* 6.파 일 위 치 :                                                                              */
-  /* 7.변 경 이 력 :                                                                              */
-  /*  version  작성자  일      자  내                 용                             요   청   자 */
-  /*  -------  ------  ----------  ------------------------------------------------  ------------ */
-  /*  1.0      shlee   2016.01.14  최초 작성                                                      */
-  /*  1.1      shlee   2016.01.15  IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER로 정리                 */
-  /*  1.2      shlee   2016.01.19  SUBSDR_CD 구분추가                                             */
-  /*  1.3      shlee   2016.01.22  CURRM_USD_AMT 로 변경                                          */
-  /************************************************************************************************/
-    DECLARE v_etl_job_no                 VARCHAR(40)   DEFAULT 'SP_CD_RES_SMR_B2B_BB_RATIO';
+  /********************************************************************************************/
+  /* 1.프 로 젝 트 : ARES                                                                     */
+  /* 2.실 행 방 법 : CALL SP_CD_RES_BBR_CALC('20160208')                                      */
+  /* 3.프로그램 ID : SP_CD_RES_BBR_CALC                                                       */
+  /* 4.설       명 : 1. 주단위데이타를 IPTDW_RES_KPI_SUBSDR_CNTRY에 DB2 테이블에 적재한다.    */
+  /*                 2. IPTDW_RES_KPI_SUBSDR_CNTRY 적재된 데이타를 가지고 Repository를 생성   */
+  /* 5.입 력 변 수 :                                                                          */
+  /*                 IN P_BASIS_YYYYMMDD( 기준일 : 매월8일 )                                  */
+  /* 6.파 일 위 치 :                                                                          */
+  /* 7.변 경 이 력 :                                                                          */
+  /*                                                                                          */
+  /*  version  작성자  일      자  내                 용                                      */
+  /*  -------  ------  ----------  --------------------------------------------------------   */
+  /*  1.0      shlee   2016.01.28  최초작성                                                   */
+  /********************************************************************************************/
+    DECLARE v_etl_job_no                 VARCHAR(30)   DEFAULT 'SP_CD_RES_BBR_CALC';
     DECLARE v_load_start_timestamp       TIMESTAMP     DEFAULT NULL;
     DECLARE v_serial_no                  VARCHAR(30)   DEFAULT NULL;
     DECLARE v_load_progress_status_code  VARCHAR(10)   DEFAULT NULL;
@@ -38,1614 +35,1790 @@ BEGIN
     DECLARE v_source_table_name          VARCHAR(300)  DEFAULT NULL;
     DECLARE v_target_table_name          VARCHAR(300)  DEFAULT NULL;
     DECLARE v_job_notes                  VARCHAR(300)  DEFAULT NULL;
-    DECLARE v_basis_yyyymmdd             VARCHAR(8)    DEFAULT NULL;
     DECLARE SQLSTATE                     CHAR(5)       DEFAULT '';
+    DECLARE v_basis_yyyymmdd             VARCHAR(8)    DEFAULT NULL;
 
-    DECLARE C1 CURSOR WITH HOLD WITH RETURN FOR
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS EXCEPTION 1 v_job_notes = MESSAGE_TEXT;
+        SET v_load_progress_status_code = SQLSTATE;
 
-    -- 전체1. W5 가장최근
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,'ALL' AS LEV1
-          ,'ALL' AS LEV2
-          ,'법인전체' AS KOR_NM
-          ,'TOTAL'    AS ENG_NM
-          ,'W05' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME < P_BASIS_YYYYMMDD
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 36 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    -- 전체1. W5 가장최근 - 1
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,'ALL' AS LEV1
-          ,'ALL' AS LEV2
-          ,'법인전체' AS KOR_NM
-          ,'TOTAL'    AS ENG_NM
-          ,'W05' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 7 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 43 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    -- 전체1. W5 가장최근 - 2
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,'ALL' AS LEV1
-          ,'ALL' AS LEV2
-          ,'법인전체' AS KOR_NM
-          ,'TOTAL'    AS ENG_NM
-          ,'W05' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 14 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 50 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    -- 전체1. W5 가장최근 - 3
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,'ALL' AS LEV1
-          ,'ALL' AS LEV2
-          ,'법인전체' AS KOR_NM
-          ,'TOTAL'    AS ENG_NM
-          ,'W05' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 21 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 57 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    -- 전체1. W5 가장최근 - 4
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,'ALL' AS LEV1
-          ,'ALL' AS LEV2
-          ,'법인전체' AS KOR_NM
-          ,'TOTAL'    AS ENG_NM
-          ,'W05' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 28 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 64 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    UNION ALL
-    -- 전체2. W13 가장최근
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,'ALL' AS LEV1
-          ,'ALL' AS LEV2
-          ,'법인전체' AS KOR_NM
-          ,'TOTAL'    AS ENG_NM
-          ,'W13' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME < P_BASIS_YYYYMMDD
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 92 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    -- 전체2. W13 가장최근 - 1
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,'ALL' AS LEV1
-          ,'ALL' AS LEV2
-          ,'법인전체' AS KOR_NM
-          ,'TOTAL'    AS ENG_NM
-          ,'W13' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 7 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 99 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    -- 전체2. W13 가장최근 - 2
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,'ALL' AS LEV1
-          ,'ALL' AS LEV2
-          ,'법인전체' AS KOR_NM
-          ,'TOTAL'    AS ENG_NM
-          ,'W13' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 14 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 106 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    -- 전체2. W13 가장최근 - 3
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,'ALL' AS LEV1
-          ,'ALL' AS LEV2
-          ,'법인전체' AS KOR_NM
-          ,'TOTAL'    AS ENG_NM
-          ,'W13' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 21 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 113 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    -- 전체2. W13 가장최근 - 4
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,'ALL' AS LEV1
-          ,'ALL' AS LEV2
-          ,'법인전체' AS KOR_NM
-          ,'TOTAL'    AS ENG_NM
-          ,'W13' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 28 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 120 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    UNION ALL
-    -- 전체3. W52 가장최근
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,'ALL' AS LEV1
-          ,'ALL' AS LEV2
-          ,'법인전체' AS KOR_NM
-          ,'TOTAL'    AS ENG_NM
-          ,'W52' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME < P_BASIS_YYYYMMDD
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 365 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    -- 전체3. W52 가장최근 - 1
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,'ALL' AS LEV1
-          ,'ALL' AS LEV2
-          ,'법인전체' AS KOR_NM
-          ,'TOTAL'    AS ENG_NM
-          ,'W52' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 7 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 372 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    -- 전체3. W52 가장최근 - 2
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,'ALL' AS LEV1
-          ,'ALL' AS LEV2
-          ,'법인전체' AS KOR_NM
-          ,'TOTAL'    AS ENG_NM
-          ,'W52' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 14 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 379 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    -- 전체3. W52 가장최근 - 3
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,'ALL' AS LEV1
-          ,'ALL' AS LEV2
-          ,'법인전체' AS KOR_NM
-          ,'TOTAL'    AS ENG_NM
-          ,'W52' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 21 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 386 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    -- 전체3. W52 가장최근 - 4
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,'ALL' AS LEV1
-          ,'ALL' AS LEV2
-          ,'법인전체' AS KOR_NM
-          ,'TOTAL'    AS ENG_NM
-          ,'W52' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 28 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 393 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    UNION ALL
-    -- 본부1. W5 가장최근
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,Z.ENG_NM AS LEV1
-          ,'ALL'    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W05' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B 
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME < P_BASIS_YYYYMMDD
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 36 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT DIVISION_CODE AS DIV_CD
-                  ,DISPLAY_NAME1 AS KOR_NM
-                  ,DISPLAY_NAME2 AS ENG_NM
-                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-            AND    USE_FLAG = 'Y' ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 본부1. W5 가장최근 - 1
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,Z.ENG_NM AS LEV1
-          ,'ALL'    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W05' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 7 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 43 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT DIVISION_CODE AS DIV_CD
-                  ,DISPLAY_NAME1 AS KOR_NM
-                  ,DISPLAY_NAME2 AS ENG_NM
-                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-            AND    USE_FLAG = 'Y' ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 본부1. W5 가장최근 - 2
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,Z.ENG_NM AS LEV1
-          ,'ALL'    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W05' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 14 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 50 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT DIVISION_CODE AS DIV_CD
-                  ,DISPLAY_NAME1 AS KOR_NM
-                  ,DISPLAY_NAME2 AS ENG_NM
-                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-            AND    USE_FLAG = 'Y' ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 본부1. W5 가장최근 - 3
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,Z.ENG_NM AS LEV1
-          ,'ALL'    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W05' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 21 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 57 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT DIVISION_CODE AS DIV_CD
-                  ,DISPLAY_NAME1 AS KOR_NM
-                  ,DISPLAY_NAME2 AS ENG_NM
-                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-            AND    USE_FLAG = 'Y' ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 본부1. W5 가장최근 - 4
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,Z.ENG_NM AS LEV1
-          ,'ALL'    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W05' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 28 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 64 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT DIVISION_CODE AS DIV_CD
-                  ,DISPLAY_NAME1 AS KOR_NM
-                  ,DISPLAY_NAME2 AS ENG_NM
-                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-            AND    USE_FLAG = 'Y' ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    UNION ALL
-    -- 본부2. W13 가장최근
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,Z.ENG_NM AS LEV1
-          ,'ALL'    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W13' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME < P_BASIS_YYYYMMDD
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 92 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT DIVISION_CODE AS DIV_CD
-                  ,DISPLAY_NAME1 AS KOR_NM
-                  ,DISPLAY_NAME2 AS ENG_NM
-                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-            AND    USE_FLAG = 'Y' ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 본부2. W13 가장최근 - 1
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,Z.ENG_NM AS LEV1
-          ,'ALL'    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W13' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 7 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 99 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT DIVISION_CODE AS DIV_CD
-                  ,DISPLAY_NAME1 AS KOR_NM
-                  ,DISPLAY_NAME2 AS ENG_NM
-                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-            AND    USE_FLAG = 'Y' ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 본부2. W13 가장최근 - 2
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,Z.ENG_NM AS LEV1
-          ,'ALL'    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W13' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 14 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 106 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT DIVISION_CODE AS DIV_CD
-                  ,DISPLAY_NAME1 AS KOR_NM
-                  ,DISPLAY_NAME2 AS ENG_NM
-                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-            AND    USE_FLAG = 'Y' ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 본부2. W13 가장최근 - 3
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,Z.ENG_NM AS LEV1
-          ,'ALL'    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W13' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 21 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 113 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT DIVISION_CODE AS DIV_CD
-                  ,DISPLAY_NAME1 AS KOR_NM
-                  ,DISPLAY_NAME2 AS ENG_NM
-                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-            AND    USE_FLAG = 'Y' ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 본부2. W13 가장최근 - 4
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,Z.ENG_NM AS LEV1
-          ,'ALL'    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W13' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 28 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 120 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT DIVISION_CODE AS DIV_CD
-                  ,DISPLAY_NAME1 AS KOR_NM
-                  ,DISPLAY_NAME2 AS ENG_NM
-                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-            AND    USE_FLAG = 'Y' ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    UNION ALL
-    -- 본부3. W52 가장최근
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,Z.ENG_NM AS LEV1
-          ,'ALL'    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W52' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME < P_BASIS_YYYYMMDD
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 365 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT DIVISION_CODE AS DIV_CD
-                  ,DISPLAY_NAME1 AS KOR_NM
-                  ,DISPLAY_NAME2 AS ENG_NM
-                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-            AND    USE_FLAG = 'Y' ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 본부3. W52 가장최근 - 1
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,Z.ENG_NM AS LEV1
-          ,'ALL'    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W52' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 7 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 372 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT DIVISION_CODE AS DIV_CD
-                  ,DISPLAY_NAME1 AS KOR_NM
-                  ,DISPLAY_NAME2 AS ENG_NM
-                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-            AND    USE_FLAG = 'Y' ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 본부3. W52 가장최근 - 2
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,Z.ENG_NM AS LEV1
-          ,'ALL'    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W52' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 14 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 379 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT DIVISION_CODE AS DIV_CD
-                  ,DISPLAY_NAME1 AS KOR_NM
-                  ,DISPLAY_NAME2 AS ENG_NM
-                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-            AND    USE_FLAG = 'Y' ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 본부3. W52 가장최근 - 3
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,Z.ENG_NM AS LEV1
-          ,'ALL'    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W52' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 21 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 386 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT DIVISION_CODE AS DIV_CD
-                  ,DISPLAY_NAME1 AS KOR_NM
-                  ,DISPLAY_NAME2 AS ENG_NM
-                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-            AND    USE_FLAG = 'Y' ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 본부3. W52 가장최근 - 4
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,Z.ENG_NM AS LEV1
-          ,'ALL'    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W52' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 28 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 393 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT DIVISION_CODE AS DIV_CD
-                  ,DISPLAY_NAME1 AS KOR_NM
-                  ,DISPLAY_NAME2 AS ENG_NM
-                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-            AND    USE_FLAG = 'Y' ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    UNION ALL
-    -- 사업부1. W5 가장최근
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,MAX(Z.LEV1) AS LEV1
-          ,Z.ENG_NM    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W05' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B 
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME < P_BASIS_YYYYMMDD
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 36 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT A.DIV_CD
-                  ,A.KOR_NM
-                  ,A.ENG_NM 
-                  ,B.ENG_NM AS LEV1
-            FROM   (
-                    SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('PIPELINE')
-                   ) A
-                  ,(SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-                   ) B
-            WHERE  A.DIV_CD = B.DIV_CD ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 사업부1. W5 가장최근 - 1
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,MAX(Z.LEV1) AS LEV1
-          ,Z.ENG_NM    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W05' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 7 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 43 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT A.DIV_CD
-                  ,A.KOR_NM
-                  ,A.ENG_NM 
-                  ,B.ENG_NM AS LEV1
-            FROM   (
-                    SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('PIPELINE')
-                   ) A
-                  ,(SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-                   ) B
-            WHERE  A.DIV_CD = B.DIV_CD ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 사업부1. W5 가장최근 - 2
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,MAX(Z.LEV1) AS LEV1
-          ,Z.ENG_NM    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W05' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 14 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 50 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT A.DIV_CD
-                  ,A.KOR_NM
-                  ,A.ENG_NM 
-                  ,B.ENG_NM AS LEV1
-            FROM   (
-                    SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('PIPELINE')
-                   ) A
-                  ,(SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-                   ) B
-            WHERE  A.DIV_CD = B.DIV_CD ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 사업부1. W5 가장최근 - 3
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,MAX(Z.LEV1) AS LEV1
-          ,Z.ENG_NM    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W05' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 21 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 57 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT A.DIV_CD
-                  ,A.KOR_NM
-                  ,A.ENG_NM 
-                  ,B.ENG_NM AS LEV1
-            FROM   (
-                    SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('PIPELINE')
-                   ) A
-                  ,(SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-                   ) B
-            WHERE  A.DIV_CD = B.DIV_CD ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 사업부1. W5 가장최근 - 4
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,MAX(Z.LEV1) AS LEV1
-          ,Z.ENG_NM    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W05' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 28 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 64 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT A.DIV_CD
-                  ,A.KOR_NM
-                  ,A.ENG_NM 
-                  ,B.ENG_NM AS LEV1
-            FROM   (
-                    SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('PIPELINE')
-                   ) A
-                  ,(SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-                   ) B
-            WHERE  A.DIV_CD = B.DIV_CD ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    UNION ALL
-    -- 사업부2. W13 가장최근
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,MAX(Z.LEV1) AS LEV1
-          ,Z.ENG_NM    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W13' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME < P_BASIS_YYYYMMDD
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 92 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT A.DIV_CD
-                  ,A.KOR_NM
-                  ,A.ENG_NM 
-                  ,B.ENG_NM AS LEV1
-            FROM   (
-                    SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('PIPELINE')
-                   ) A
-                  ,(SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-                   ) B
-            WHERE  A.DIV_CD = B.DIV_CD ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 사업부2. W13 가장최근 - 1
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,MAX(Z.LEV1) AS LEV1
-          ,Z.ENG_NM    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W13' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 7 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 99 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT A.DIV_CD
-                  ,A.KOR_NM
-                  ,A.ENG_NM 
-                  ,B.ENG_NM AS LEV1
-            FROM   (
-                    SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('PIPELINE')
-                   ) A
-                  ,(SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-                   ) B
-            WHERE  A.DIV_CD = B.DIV_CD ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 사업부2. W13 가장최근 - 2
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,MAX(Z.LEV1) AS LEV1
-          ,Z.ENG_NM    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W13' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 14 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 106 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT A.DIV_CD
-                  ,A.KOR_NM
-                  ,A.ENG_NM 
-                  ,B.ENG_NM AS LEV1
-            FROM   (
-                    SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('PIPELINE')
-                   ) A
-                  ,(SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-                   ) B
-            WHERE  A.DIV_CD = B.DIV_CD ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 사업부2. W13 가장최근 - 3
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,MAX(Z.LEV1) AS LEV1
-          ,Z.ENG_NM    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W13' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 21 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 113 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT A.DIV_CD
-                  ,A.KOR_NM
-                  ,A.ENG_NM 
-                  ,B.ENG_NM AS LEV1
-            FROM   (
-                    SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('PIPELINE')
-                   ) A
-                  ,(SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-                   ) B
-            WHERE  A.DIV_CD = B.DIV_CD ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 사업부2. W13 가장최근 - 4
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,MAX(Z.LEV1) AS LEV1
-          ,Z.ENG_NM    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W13' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 28 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 120 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT A.DIV_CD
-                  ,A.KOR_NM
-                  ,A.ENG_NM 
-                  ,B.ENG_NM AS LEV1
-            FROM   (
-                    SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('PIPELINE')
-                   ) A
-                  ,(SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-                   ) B
-            WHERE  A.DIV_CD = B.DIV_CD ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    UNION ALL
-    -- 사업부3. W52 가장최근
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,MAX(Z.LEV1) AS LEV1
-          ,Z.ENG_NM    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W52' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME < P_BASIS_YYYYMMDD
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 365 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT A.DIV_CD
-                  ,A.KOR_NM
-                  ,A.ENG_NM 
-                  ,B.ENG_NM AS LEV1
-            FROM   (
-                    SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('PIPELINE')
-                   ) A
-                  ,(SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-                   ) B
-            WHERE  A.DIV_CD = B.DIV_CD ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 사업부3. W52 가장최근 - 1
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,MAX(Z.LEV1) AS LEV1
-          ,Z.ENG_NM    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W52' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 7 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 372 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT A.DIV_CD
-                  ,A.KOR_NM
-                  ,A.ENG_NM 
-                  ,B.ENG_NM AS LEV1
-            FROM   (
-                    SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('PIPELINE')
-                   ) A
-                  ,(SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-                   ) B
-            WHERE  A.DIV_CD = B.DIV_CD ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 사업부3. W52 가장최근 - 2
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,MAX(Z.LEV1) AS LEV1
-          ,Z.ENG_NM    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W52' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 14 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 379 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT A.DIV_CD
-                  ,A.KOR_NM
-                  ,A.ENG_NM 
-                  ,B.ENG_NM AS LEV1
-            FROM   (
-                    SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('PIPELINE')
-                   ) A
-                  ,(SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-                   ) B
-            WHERE  A.DIV_CD = B.DIV_CD ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 사업부3. W52 가장최근 - 3
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,MAX(Z.LEV1) AS LEV1
-          ,Z.ENG_NM    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W52' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 21 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 386 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT A.DIV_CD
-                  ,A.KOR_NM
-                  ,A.ENG_NM 
-                  ,B.ENG_NM AS LEV1
-            FROM   (
-                    SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('PIPELINE')
-                   ) A
-                  ,(SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-                   ) B
-            WHERE  A.DIV_CD = B.DIV_CD ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
-    -- 사업부3. W52 가장최근 - 4
-    UNION ALL
-    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
-          ,MAX(Z.LEV1) AS LEV1
-          ,Z.ENG_NM    AS LEV2
-          ,MAX(Z.KOR_NM) AS KOR_NM
-          ,MAX(Z.ENG_NM) AS ENG_NM
-          ,'W52' AS KPI_CD
-          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
-                WHEN 0 THEN 0
-                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
-    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
-          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
-            FROM   IPTDW.IPTDW_RES_DIM_CODES A
-                  ,IPTDW.IPTDW_RES_DIM_CODES B
-            WHERE  A.CODE_TYPE = 'SMART_WEEK'
-            AND    A.CODE_TYPE = B.CODE_TYPE
-            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 28 DAY, 'YYYYMMDD')
-            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 393 DAY, 'YYYYMMDD')
-            AND    A.CODE_ID   >= B.CODE_ID ) C
-          ,(SELECT A.DIV_CD
-                  ,A.KOR_NM
-                  ,A.ENG_NM 
-                  ,B.ENG_NM AS LEV1
-            FROM   (
-                    SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('PIPELINE')
-                   ) A
-                  ,(SELECT DIVISION_CODE AS DIV_CD
-                          ,DISPLAY_NAME1 AS KOR_NM
-                          ,DISPLAY_NAME2 AS ENG_NM
-                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
-                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
-                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
-                   ) B
-            WHERE  A.DIV_CD = B.DIV_CD ) Z
-    WHERE  A.DIV_CD = B.DIVISION_CODE
-    AND    A.DIV_CD = Z.DIV_CD
-    AND    A.CAT_CD = 'BEP_SMART_BB'
-    AND    A.SUBSDR_CD = P_SUBSDR_CD
-    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
-    GROUP BY Z.ENG_NM
+        ROLLBACK;
 
-    WITH UR;
-    
-    OPEN C1;
-   /* LOG 변수 RESET */
+        CALL sp_cd_etl_job_logs( v_etl_job_no,
+                                 v_basis_yyyymmdd,
+                                 v_load_start_timestamp,
+                                 v_serial_no,
+                                 v_load_progress_status_code,
+                                 v_target_insert_count,
+                                 v_target_update_count,
+                                 v_target_delete_count,
+                                 v_source_table_name,
+                                 v_target_table_name,
+                                 v_job_notes
+                               );
+        COMMIT;
+
+        SIGNAL SQLSTATE '70001' SET MESSAGE_TEXT = v_job_notes;
+    END;
+
+    /* LOG 변수 RESET */
     SET v_load_start_timestamp       = CURRENT TIMESTAMP;
     SET v_serial_no                  = '1';
     SET v_target_insert_count        = 0;
     SET v_target_update_count        = 0;
     SET v_target_delete_count        = 0;
-    SET v_source_table_name          = 'IPTDW_RES_KPI_SUBSDR_CNTRY';
-    SET v_basis_yyyymmdd             = P_BASIS_YYYYMMDD;
-    SET v_load_progress_status_code  = SQLSTATE;
+    SET v_source_table_name          = 'IPTDW_RES_EXCEL_UPLOAD_DATA';
+    SET v_target_table_name          = 'IPTDW_RES_KPI_SUBSDR_CNTRY';
+    SET v_basis_yyyymmdd             = TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM');
 
+    /*-----------------------------------
+       기준월의 기존 데이터 삭제
+    -----------------------------------*/
+    DELETE
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY
+    WHERE  BASE_YYYYMM     = TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM')
+    AND    CAT_CD          = 'SP_CD_RES_BBR_CALC';
+
+    GET DIAGNOSTICS  v_target_delete_count = ROW_COUNT;
+
+INSERT INTO IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY
+(
+   BASE_YYYYMM
+  ,SCENARIO_TYPE_CD
+  ,DIV_CD
+  ,SUBSDR_CD
+  ,AU_CD
+  ,MANUAL_ADJ_FLAG
+  ,KPI_CD
+  ,CAT_CD
+  ,SUB_CAT_CD
+  ,ZONE_RNR_CD
+  ,SUBSDR_RNR_CD
+  ,CNTRY_CD
+  ,APPLY_YYYYMM
+  ,CURRM_USD_AMT
+  ,ATTRIBUTE1_VALUE
+  ,ATTRIBUTE2_VALUE
+  ,CREATION_DATE
+  ,CREATION_USR_ID
+  ,LAST_UPD_DATE
+  ,LAST_UPD_USR_ID
+)
+
+SELECT REP.BASE_YYYYMM AS BASE_YYYYMM
+  ,'AC0' AS SCENARIO_TYPE_CD
+  ,SUBSTR(REP.LEV2,1,5) AS DIV_CD
+  ,REP.SUBSDR_CD AS SUBSDR_CD
+  ,'*' AS AU_CD
+  ,'N' AS MANUAL_ADJ_FLAG
+  ,REP.KPI_CD AS KPI_CD
+  ,'BEP_SMART_BB_CALC' AS CAT_CD
+  ,REP.BASE_YYYYWW AS SUB_CAT_CD
+  ,'*' AS ZONE_RNR_CD
+  ,REP.LEV1 AS SUBSDR_RNR_CD
+  ,REP.LEV2 AS CNTRY_CD
+  ,REP.BASE_YYYYMM AS APPLY_YYYYMM
+  ,REP.BB_RATIO AS CURRM_USD_AMT
+  ,REP.KOR_NM AS ATTRIBUTE1_VALUE
+  ,REP.ENG_NM AS ATTRIBUTE2_VALUE
+      ,CURRENT TIMESTAMP   
+      ,'ares'              
+      ,CURRENT TIMESTAMP   
+      ,'ares'  
+
+FROM   (
+    -- 전체1. W5 가장최근
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,'ALL' AS LEV1
+          ,'ALL' AS LEV2
+          ,'법인전체' AS KOR_NM
+          ,'TOTAL'    AS ENG_NM
+          ,'W05' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME < P_BASIS_YYYYMMDD
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 36 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+    -- 전체1. W5 가장최근 - 1
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,'ALL' AS LEV1
+          ,'ALL' AS LEV2
+          ,'법인전체' AS KOR_NM
+          ,'TOTAL'    AS ENG_NM
+          ,'W05' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 7 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 43 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+    -- 전체1. W5 가장최근 - 2
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,'ALL' AS LEV1
+          ,'ALL' AS LEV2
+          ,'법인전체' AS KOR_NM
+          ,'TOTAL'    AS ENG_NM
+          ,'W05' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 14 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 50 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+    -- 전체1. W5 가장최근 - 3
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,'ALL' AS LEV1
+          ,'ALL' AS LEV2
+          ,'법인전체' AS KOR_NM
+          ,'TOTAL'    AS ENG_NM
+          ,'W05' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 21 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 57 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+    -- 전체1. W5 가장최근 - 4
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,'ALL' AS LEV1
+          ,'ALL' AS LEV2
+          ,'법인전체' AS KOR_NM
+          ,'TOTAL'    AS ENG_NM
+          ,'W05' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 28 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 64 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+    UNION ALL
+    -- 전체2. W13 가장최근
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,'ALL' AS LEV1
+          ,'ALL' AS LEV2
+          ,'법인전체' AS KOR_NM
+          ,'TOTAL'    AS ENG_NM
+          ,'W13' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME < P_BASIS_YYYYMMDD
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 92 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+    -- 전체2. W13 가장최근 - 1
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,'ALL' AS LEV1
+          ,'ALL' AS LEV2
+          ,'법인전체' AS KOR_NM
+          ,'TOTAL'    AS ENG_NM
+          ,'W13' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 7 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 99 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+    -- 전체2. W13 가장최근 - 2
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,'ALL' AS LEV1
+          ,'ALL' AS LEV2
+          ,'법인전체' AS KOR_NM
+          ,'TOTAL'    AS ENG_NM
+          ,'W13' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 14 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 106 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+    -- 전체2. W13 가장최근 - 3
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,'ALL' AS LEV1
+          ,'ALL' AS LEV2
+          ,'법인전체' AS KOR_NM
+          ,'TOTAL'    AS ENG_NM
+          ,'W13' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 21 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 113 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+    -- 전체2. W13 가장최근 - 4
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,'ALL' AS LEV1
+          ,'ALL' AS LEV2
+          ,'법인전체' AS KOR_NM
+          ,'TOTAL'    AS ENG_NM
+          ,'W13' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 28 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 120 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+    UNION ALL
+    -- 전체3. W52 가장최근
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,'ALL' AS LEV1
+          ,'ALL' AS LEV2
+          ,'법인전체' AS KOR_NM
+          ,'TOTAL'    AS ENG_NM
+          ,'W52' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME < P_BASIS_YYYYMMDD
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 365 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+    -- 전체3. W52 가장최근 - 1
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,'ALL' AS LEV1
+          ,'ALL' AS LEV2
+          ,'법인전체' AS KOR_NM
+          ,'TOTAL'    AS ENG_NM
+          ,'W52' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 7 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 372 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+    -- 전체3. W52 가장최근 - 2
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,'ALL' AS LEV1
+          ,'ALL' AS LEV2
+          ,'법인전체' AS KOR_NM
+          ,'TOTAL'    AS ENG_NM
+          ,'W52' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 14 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 379 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+    -- 전체3. W52 가장최근 - 3
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,'ALL' AS LEV1
+          ,'ALL' AS LEV2
+          ,'법인전체' AS KOR_NM
+          ,'TOTAL'    AS ENG_NM
+          ,'W52' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 21 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 386 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+    -- 전체3. W52 가장최근 - 4
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,'ALL' AS LEV1
+          ,'ALL' AS LEV2
+          ,'법인전체' AS KOR_NM
+          ,'TOTAL'    AS ENG_NM
+          ,'W52' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 28 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 393 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+
+    -- 본부1. W5 가장최근
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,Z.ENG_NM AS LEV1
+          ,'ALL'    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W05' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B 
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME < P_BASIS_YYYYMMDD
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 36 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT DIVISION_CODE AS DIV_CD
+                  ,DISPLAY_NAME1 AS KOR_NM
+                  ,DISPLAY_NAME2 AS ENG_NM
+                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+            AND    USE_FLAG = 'Y' ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY Z.ENG_NM
+            ,A.SUBSDR_CD    
+    -- 본부1. W5 가장최근 - 1
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,Z.ENG_NM AS LEV1
+          ,'ALL'    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W05' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 7 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 43 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT DIVISION_CODE AS DIV_CD
+                  ,DISPLAY_NAME1 AS KOR_NM
+                  ,DISPLAY_NAME2 AS ENG_NM
+                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+            AND    USE_FLAG = 'Y' ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY Z.ENG_NM
+            ,A.SUBSDR_CD    
+    -- 본부1. W5 가장최근 - 2
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,Z.ENG_NM AS LEV1
+          ,'ALL'    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W05' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 14 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 50 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT DIVISION_CODE AS DIV_CD
+                  ,DISPLAY_NAME1 AS KOR_NM
+                  ,DISPLAY_NAME2 AS ENG_NM
+                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+            AND    USE_FLAG = 'Y' ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY Z.ENG_NM
+            ,A.SUBSDR_CD    
+    -- 본부1. W5 가장최근 - 3
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,Z.ENG_NM AS LEV1
+          ,'ALL'    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W05' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 21 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 57 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT DIVISION_CODE AS DIV_CD
+                  ,DISPLAY_NAME1 AS KOR_NM
+                  ,DISPLAY_NAME2 AS ENG_NM
+                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+            AND    USE_FLAG = 'Y' ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY Z.ENG_NM
+            ,A.SUBSDR_CD    
+    -- 본부1. W5 가장최근 - 4
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,Z.ENG_NM AS LEV1
+          ,'ALL'    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W05' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 28 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 64 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT DIVISION_CODE AS DIV_CD
+                  ,DISPLAY_NAME1 AS KOR_NM
+                  ,DISPLAY_NAME2 AS ENG_NM
+                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+            AND    USE_FLAG = 'Y' ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY Z.ENG_NM
+            ,A.SUBSDR_CD    
+    UNION ALL
+    -- 본부2. W13 가장최근
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,Z.ENG_NM AS LEV1
+          ,'ALL'    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W13' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME < P_BASIS_YYYYMMDD
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 92 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT DIVISION_CODE AS DIV_CD
+                  ,DISPLAY_NAME1 AS KOR_NM
+                  ,DISPLAY_NAME2 AS ENG_NM
+                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+            AND    USE_FLAG = 'Y' ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY Z.ENG_NM
+            ,A.SUBSDR_CD    
+    -- 본부2. W13 가장최근 - 1
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,Z.ENG_NM AS LEV1
+          ,'ALL'    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W13' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 7 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 99 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT DIVISION_CODE AS DIV_CD
+                  ,DISPLAY_NAME1 AS KOR_NM
+                  ,DISPLAY_NAME2 AS ENG_NM
+                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+            AND    USE_FLAG = 'Y' ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY Z.ENG_NM
+            ,A.SUBSDR_CD    
+    -- 본부2. W13 가장최근 - 2
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,Z.ENG_NM AS LEV1
+          ,'ALL'    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W13' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 14 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 106 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT DIVISION_CODE AS DIV_CD
+                  ,DISPLAY_NAME1 AS KOR_NM
+                  ,DISPLAY_NAME2 AS ENG_NM
+                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+            AND    USE_FLAG = 'Y' ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY Z.ENG_NM
+            ,A.SUBSDR_CD    
+    -- 본부2. W13 가장최근 - 3
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,Z.ENG_NM AS LEV1
+          ,'ALL'    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W13' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 21 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 113 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT DIVISION_CODE AS DIV_CD
+                  ,DISPLAY_NAME1 AS KOR_NM
+                  ,DISPLAY_NAME2 AS ENG_NM
+                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+            AND    USE_FLAG = 'Y' ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY Z.ENG_NM
+            ,A.SUBSDR_CD    
+    -- 본부2. W13 가장최근 - 4
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,Z.ENG_NM AS LEV1
+          ,'ALL'    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W13' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 28 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 120 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT DIVISION_CODE AS DIV_CD
+                  ,DISPLAY_NAME1 AS KOR_NM
+                  ,DISPLAY_NAME2 AS ENG_NM
+                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+            AND    USE_FLAG = 'Y' ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY Z.ENG_NM
+            ,A.SUBSDR_CD    
+    UNION ALL
+    -- 본부3. W52 가장최근
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,Z.ENG_NM AS LEV1
+          ,'ALL'    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W52' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME < P_BASIS_YYYYMMDD
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 365 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT DIVISION_CODE AS DIV_CD
+                  ,DISPLAY_NAME1 AS KOR_NM
+                  ,DISPLAY_NAME2 AS ENG_NM
+                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+            AND    USE_FLAG = 'Y' ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY Z.ENG_NM
+            ,A.SUBSDR_CD    
+    -- 본부3. W52 가장최근 - 1
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,Z.ENG_NM AS LEV1
+          ,'ALL'    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W52' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 7 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 372 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT DIVISION_CODE AS DIV_CD
+                  ,DISPLAY_NAME1 AS KOR_NM
+                  ,DISPLAY_NAME2 AS ENG_NM
+                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+            AND    USE_FLAG = 'Y' ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY Z.ENG_NM
+            ,A.SUBSDR_CD    
+    -- 본부3. W52 가장최근 - 2
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,Z.ENG_NM AS LEV1
+          ,'ALL'    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W52' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 14 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 379 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT DIVISION_CODE AS DIV_CD
+                  ,DISPLAY_NAME1 AS KOR_NM
+                  ,DISPLAY_NAME2 AS ENG_NM
+                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+            AND    USE_FLAG = 'Y' ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY Z.ENG_NM
+            ,A.SUBSDR_CD    
+    -- 본부3. W52 가장최근 - 3
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,Z.ENG_NM AS LEV1
+          ,'ALL'    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W52' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 21 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 386 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT DIVISION_CODE AS DIV_CD
+                  ,DISPLAY_NAME1 AS KOR_NM
+                  ,DISPLAY_NAME2 AS ENG_NM
+                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+            AND    USE_FLAG = 'Y' ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY Z.ENG_NM
+            ,A.SUBSDR_CD    
+    -- 본부3. W52 가장최근 - 4
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,Z.ENG_NM AS LEV1
+          ,'ALL'    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W52' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 28 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 393 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT DIVISION_CODE AS DIV_CD
+                  ,DISPLAY_NAME1 AS KOR_NM
+                  ,DISPLAY_NAME2 AS ENG_NM
+                  ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+            FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+            WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+            AND    USE_FLAG = 'Y' ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY Z.ENG_NM
+            ,A.SUBSDR_CD    
+    -- 사업부1. W5 가장최근
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,MAX(Z.LEV1) AS LEV1
+          ,Z.DIV_CD    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W05' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B 
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME < P_BASIS_YYYYMMDD
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 36 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT A.DIV_CD
+                  ,A.KOR_NM
+                  ,A.ENG_NM 
+                  ,B.ENG_NM AS LEV1
+            FROM   (
+                    SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('PIPELINE')
+                   ) A
+                  ,(SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+                   ) B
+            WHERE  A.DIV_CD = B.DIV_CD ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+            ,Z.DIV_CD
+    -- 사업부1. W5 가장최근 - 1
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,MAX(Z.LEV1) AS LEV1
+          ,Z.DIV_CD    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W05' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 7 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 43 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT A.DIV_CD
+                  ,A.KOR_NM
+                  ,A.ENG_NM 
+                  ,B.ENG_NM AS LEV1
+            FROM   (
+                    SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('PIPELINE')
+                   ) A
+                  ,(SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+                   ) B
+            WHERE  A.DIV_CD = B.DIV_CD ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+            ,Z.DIV_CD
+    -- 사업부1. W5 가장최근 - 2
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,MAX(Z.LEV1) AS LEV1
+          ,Z.DIV_CD    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W05' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 14 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 50 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT A.DIV_CD
+                  ,A.KOR_NM
+                  ,A.ENG_NM 
+                  ,B.ENG_NM AS LEV1
+            FROM   (
+                    SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('PIPELINE')
+                   ) A
+                  ,(SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+                   ) B
+            WHERE  A.DIV_CD = B.DIV_CD ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+            ,Z.DIV_CD
+    -- 사업부1. W5 가장최근 - 3
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,MAX(Z.LEV1) AS LEV1
+          ,Z.DIV_CD    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W05' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 21 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 57 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT A.DIV_CD
+                  ,A.KOR_NM
+                  ,A.ENG_NM 
+                  ,B.ENG_NM AS LEV1
+            FROM   (
+                    SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('PIPELINE')
+                   ) A
+                  ,(SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+                   ) B
+            WHERE  A.DIV_CD = B.DIV_CD ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+            ,Z.DIV_CD
+    -- 사업부1. W5 가장최근 - 4
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,MAX(Z.LEV1) AS LEV1
+          ,Z.DIV_CD    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W05' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 28 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 64 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT A.DIV_CD
+                  ,A.KOR_NM
+                  ,A.ENG_NM 
+                  ,B.ENG_NM AS LEV1
+            FROM   (
+                    SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('PIPELINE')
+                   ) A
+                  ,(SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+                   ) B
+            WHERE  A.DIV_CD = B.DIV_CD ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+            ,Z.DIV_CD
+    UNION ALL
+    -- 사업부2. W13 가장최근
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,MAX(Z.LEV1) AS LEV1
+          ,Z.DIV_CD    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W13' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME < P_BASIS_YYYYMMDD
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 92 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT A.DIV_CD
+                  ,A.KOR_NM
+                  ,A.ENG_NM 
+                  ,B.ENG_NM AS LEV1
+            FROM   (
+                    SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('PIPELINE')
+                   ) A
+                  ,(SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+                   ) B
+            WHERE  A.DIV_CD = B.DIV_CD ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+            ,Z.DIV_CD
+    -- 사업부2. W13 가장최근 - 1
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,MAX(Z.LEV1) AS LEV1
+          ,Z.DIV_CD    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W13' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 7 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 99 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT A.DIV_CD
+                  ,A.KOR_NM
+                  ,A.ENG_NM 
+                  ,B.ENG_NM AS LEV1
+            FROM   (
+                    SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('PIPELINE')
+                   ) A
+                  ,(SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+                   ) B
+            WHERE  A.DIV_CD = B.DIV_CD ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+            ,Z.DIV_CD
+    -- 사업부2. W13 가장최근 - 2
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,MAX(Z.LEV1) AS LEV1
+          ,Z.DIV_CD    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W13' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 14 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 106 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT A.DIV_CD
+                  ,A.KOR_NM
+                  ,A.ENG_NM 
+                  ,B.ENG_NM AS LEV1
+            FROM   (
+                    SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('PIPELINE')
+                   ) A
+                  ,(SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+                   ) B
+            WHERE  A.DIV_CD = B.DIV_CD ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+            ,Z.DIV_CD
+    -- 사업부2. W13 가장최근 - 3
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,MAX(Z.LEV1) AS LEV1
+          ,Z.DIV_CD    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W13' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 21 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 113 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT A.DIV_CD
+                  ,A.KOR_NM
+                  ,A.ENG_NM 
+                  ,B.ENG_NM AS LEV1
+            FROM   (
+                    SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('PIPELINE')
+                   ) A
+                  ,(SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+                   ) B
+            WHERE  A.DIV_CD = B.DIV_CD ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+            ,Z.DIV_CD
+    -- 사업부2. W13 가장최근 - 4
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,MAX(Z.LEV1) AS LEV1
+          ,Z.DIV_CD    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W13' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 28 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 120 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT A.DIV_CD
+                  ,A.KOR_NM
+                  ,A.ENG_NM 
+                  ,B.ENG_NM AS LEV1
+            FROM   (
+                    SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('PIPELINE')
+                   ) A
+                  ,(SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+                   ) B
+            WHERE  A.DIV_CD = B.DIV_CD ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+            ,Z.DIV_CD
+    UNION ALL
+    -- 사업부3. W52 가장최근
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,MAX(Z.LEV1) AS LEV1
+          ,Z.DIV_CD    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W52' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME < P_BASIS_YYYYMMDD
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 365 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT A.DIV_CD
+                  ,A.KOR_NM
+                  ,A.ENG_NM 
+                  ,B.ENG_NM AS LEV1
+            FROM   (
+                    SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('PIPELINE')
+                   ) A
+                  ,(SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+                   ) B
+            WHERE  A.DIV_CD = B.DIV_CD ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+            ,Z.DIV_CD
+    -- 사업부3. W52 가장최근 - 1
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,MAX(Z.LEV1) AS LEV1
+          ,Z.DIV_CD    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W52' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 7 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 372 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT A.DIV_CD
+                  ,A.KOR_NM
+                  ,A.ENG_NM 
+                  ,B.ENG_NM AS LEV1
+            FROM   (
+                    SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('PIPELINE')
+                   ) A
+                  ,(SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+                   ) B
+            WHERE  A.DIV_CD = B.DIV_CD ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+            ,Z.DIV_CD
+    -- 사업부3. W52 가장최근 - 2
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,MAX(Z.LEV1) AS LEV1
+          ,Z.DIV_CD    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W52' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 14 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 379 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT A.DIV_CD
+                  ,A.KOR_NM
+                  ,A.ENG_NM 
+                  ,B.ENG_NM AS LEV1
+            FROM   (
+                    SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('PIPELINE')
+                   ) A
+                  ,(SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+                   ) B
+            WHERE  A.DIV_CD = B.DIV_CD ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+            ,Z.DIV_CD
+    -- 사업부3. W52 가장최근 - 3
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,MAX(Z.LEV1) AS LEV1
+          ,Z.DIV_CD    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W52' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 21 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 386 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT A.DIV_CD
+                  ,A.KOR_NM
+                  ,A.ENG_NM 
+                  ,B.ENG_NM AS LEV1
+            FROM   (
+                    SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('PIPELINE')
+                   ) A
+                  ,(SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+                   ) B
+            WHERE  A.DIV_CD = B.DIV_CD ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+            ,Z.DIV_CD
+    -- 사업부3. W52 가장최근 - 4
+    UNION ALL
+    SELECT MAX(C.BASE_YYYYWW) AS BASE_YYYYWW
+          ,TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM') AS BASE_YYYYMM
+          ,A.SUBSDR_CD AS SUBSDR_CD
+          ,MAX(Z.LEV1) AS LEV1
+          ,Z.DIV_CD    AS LEV2
+          ,MAX(Z.KOR_NM) AS KOR_NM
+          ,MAX(Z.ENG_NM) AS ENG_NM
+          ,'W52' AS KPI_CD
+          ,CASE COALESCE(SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END),0)
+                WHEN 0 THEN 0
+                ELSE SUM(CASE A.KPI_CD WHEN 'AWARD' THEN A.CURRM_USD_AMT END) / SUM(CASE A.KPI_CD WHEN 'SALES' THEN A.CURRM_USD_AMT END) END  AS BB_RATIO
+    FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
+          ,IPTDW.IPTDW_RES_DIM_MST_DIV_PROD_MAPPING B     
+          ,(SELECT DISTINCT A.CODE_ID AS BASE_YYYYWW
+            FROM   IPTDW.IPTDW_RES_DIM_CODES A
+                  ,IPTDW.IPTDW_RES_DIM_CODES B
+            WHERE  A.CODE_TYPE = 'SMART_WEEK'
+            AND    A.CODE_TYPE = B.CODE_TYPE
+            AND    A.CODE_NAME <  TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 28 DAY, 'YYYYMMDD')
+            AND    B.CODE_NAME >= TO_CHAR(to_date(P_BASIS_YYYYMMDD, 'YYYYMMDD') - 393 DAY, 'YYYYMMDD')
+            AND    A.CODE_ID   >= B.CODE_ID ) C
+          ,(SELECT A.DIV_CD
+                  ,A.KOR_NM
+                  ,A.ENG_NM 
+                  ,B.ENG_NM AS LEV1
+            FROM   (
+                    SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('PIPELINE')
+                   ) A
+                  ,(SELECT DIVISION_CODE AS DIV_CD
+                          ,DISPLAY_NAME1 AS KOR_NM
+                          ,DISPLAY_NAME2 AS ENG_NM
+                          ,DISPLAY_ORDER_SEQ AS DISP_SEQ
+                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
+                    WHERE  CODE_TYPE IN ('BB_RATIO_UP','BB_RATIO')
+                   ) B
+            WHERE  A.DIV_CD = B.DIV_CD ) Z
+    WHERE  A.DIV_CD = B.DIVISION_CODE
+    AND    A.DIV_CD = Z.DIV_CD
+    AND    A.CAT_CD = 'BEP_SMART_BB'
+    AND    A.APPLY_YYYYMM = C.BASE_YYYYWW
+    GROUP BY A.SUBSDR_CD
+            ,Z.DIV_CD
+) REP
+                 
+    WITH UR;
+
+    SET v_load_progress_status_code        = SQLSTATE;
+
+    COMMIT;
+
+    /*--------------------
+       ETL JOB LOG 생성
+    ---------------------*/
     CALL sp_cd_etl_job_logs( v_etl_job_no,
                              v_basis_yyyymmdd,
                              v_load_start_timestamp,
@@ -1660,4 +1833,28 @@ BEGIN
                            );
 
     COMMIT;
+
+    /*--------------------------------
+       ARES JOB MONITORING LOG 생성
+    ---------------------------------*/
+    FOR C1 AS
+        SELECT DISTINCT
+               DIV_CD as v_division_code,
+               SUBSTR(SCENARIO_TYPE_CD,1,2) as v_scenario_code
+        FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY
+        WHERE  BASE_YYYYMM  = TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM')
+        AND    CAT_CD       = 'BEP_SMART_BB_CALC'
+        AND    MANUAL_ADJ_FLAG = 'N'
+    DO
+        CALL sp_cd_res_job_monitor_logs( TO_CHAR(TO_DATE(SUBSTR(P_BASIS_YYYYMMDD,1,6),'YYYYMM') - 1 MONTH, 'YYYYMM'),
+                                         'BEP_SMART_BB_CALC',
+                                         v_scenario_code,
+                                         'SYSTEM',
+                                         v_division_code,
+                                         'ares'
+                                        );
+    END FOR;
+
+    COMMIT;
+
 END

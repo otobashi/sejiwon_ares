@@ -53,11 +53,9 @@ BEGIN
             ,SUM(A.CURRM_USD_AMT) AS AMOUNT
             ,MIN(B.DISP_SEQ) AS DISP_SEQ
             ,B.ENG_NM         AS COL_INDEX_ENG
-      FROM   IPTDW.IPTDW_RES_KPI_DIV_B2B_S A
-            ,(SELECT CASE DIVISION_CODE
-                          WHEN 'GNTHT' THEN 'GNT_L2_5'
-                          WHEN 'GNTCS' THEN 'GNT_L2_1'
-                          ELSE DIVISION_CODE END AS DIV_CD
+      FROM   IPTDWIF.IPTDWIF_RES_N2G_KPI_DIV_B2B_S A
+--      FROM   IPTDW.IPTDW_RES_KPI_DIV_B2B_S A
+            ,(SELECT DIVISION_CODE AS DIV_CD
                     ,DISPLAY_NAME1 AS KOR_NM
                     ,DISPLAY_NAME2 AS ENG_NM
                     ,DISPLAY_ORDER_SEQ AS DISP_SEQ

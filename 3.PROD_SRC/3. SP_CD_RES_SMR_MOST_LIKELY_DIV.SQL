@@ -79,7 +79,7 @@ BEGIN
                    ,ATTRIBUTE4 AS AU_CD
              FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
              WHERE  CODE_TYPE = 'SMART_SUBSDR_DISP') AU
-      WHERE  A.BASE_YYYYMM = C.BASE_YYYYMM
+      WHERE  A.APPLY_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
       AND    A.SCENARIO_TYPE_CD IN ('PR1','PR2','PR3')
       AND    A.CAT_CD = 'BEP_SMART_ML'
       AND    A.KPI_CD in ('SALE', 'COI')
@@ -124,7 +124,7 @@ BEGIN
                    ,ATTRIBUTE4 AS AU_CD
              FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
              WHERE  CODE_TYPE = 'SMART_SUBSDR_DISP') AU
-      WHERE  A.BASE_YYYYMM = C.BASE_YYYYMM
+      WHERE  A.APPLY_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
       AND    A.SCENARIO_TYPE_CD IN ('PR1','PR2','PR3')
       AND    A.CAT_CD = 'BEP_SMART_ML'
       AND    A.KPI_CD in ('SALE', 'COI')
@@ -140,7 +140,6 @@ BEGIN
 -- 1-1.전월 Most Likely 누계
       SELECT A.COL_INDEX
             ,A.SUBSDR_CD
---            ,A.BASE_YYYYMM
             ,'누계'
             ,A.KPI_CD
             ,SUM(A.AMOUNT)
@@ -161,9 +160,9 @@ BEGIN
                    WHERE  CODE_ID = P_DIV_CD
                    AND    CODE_TYPE IN ( 'B2C_DIV','B2B_DIV')
                   ) B
-            WHERE  A.BASE_YYYYMM BETWEEN SUBSTR(TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM'),1,4)||'01' AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM')
+            WHERE  A.BASE_YYYYMM >= TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 YEAR, 'YYYY')||'01'
+            AND    A.BASE_YYYYMM <= TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 MONTH, 'YYYYMM')
             AND    A.SCENARIO_TYPE_CD IN ('AC0')
-      --      AND    A.SCENARIO_TYPE_CD IN ('PR2','PR3','PR4')
             AND    A.CAT_CD = 'BEP_SMART_DIV'
             AND    A.KPI_CD in ('SALE', 'COI')
             AND    A.SUBSDR_CD = P_SUBSDR_CD
@@ -201,7 +200,7 @@ BEGIN
                          ,ATTRIBUTE4 AS AU_CD
                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
                    WHERE  CODE_TYPE = 'SMART_SUBSDR_DISP') AU
-            WHERE  A.BASE_YYYYMM = C.BASE_YYYYMM
+            WHERE  A.APPLY_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
             AND    A.SCENARIO_TYPE_CD IN ('PR1','PR2','PR3')
             AND    A.CAT_CD = 'BEP_SMART_ML'
             AND    A.KPI_CD in ('SALE', 'COI')
@@ -216,7 +215,6 @@ BEGIN
             ) A
       GROUP BY A.COL_INDEX
               ,A.SUBSDR_CD
---              ,A.BASE_YYYYMM
               ,A.KPI_CD        
 
       UNION ALL
@@ -242,7 +240,7 @@ BEGIN
                    ,ATTRIBUTE4 AS AU_CD
              FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
              WHERE  CODE_TYPE = 'SMART_SUBSDR_DISP') AU
-      WHERE  A.BASE_YYYYMM = C.BASE_YYYYMM
+      WHERE  A.APPLY_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
       AND    A.SCENARIO_TYPE_CD IN ('PR1','PR2','PR3')
       AND    A.CAT_CD = 'BEP_SMART_ML'
       AND    A.KPI_CD in ('SALE', 'COI')
@@ -277,7 +275,7 @@ BEGIN
                    ,ATTRIBUTE4 AS AU_CD
              FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
              WHERE  CODE_TYPE = 'SMART_SUBSDR_DISP') AU
-      WHERE  A.BASE_YYYYMM = C.BASE_YYYYMM
+      WHERE  A.APPLY_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
       AND    A.SCENARIO_TYPE_CD IN ('PR1','PR2','PR3')
       AND    A.CAT_CD = 'BEP_SMART_ML'
       AND    A.KPI_CD in ('SALE', 'COI')
@@ -292,7 +290,6 @@ BEGIN
 -- 1-1.전월  법인전체ML 누계
       SELECT A.COL_INDEX
             ,A.SUBSDR_CD
---            ,A.BASE_YYYYMM
             ,'누계'
             ,A.KPI_CD
             ,SUM(A.AMOUNT)
@@ -305,7 +302,8 @@ BEGIN
                   ,SUM(A.CURRM_USD_AMT) AS AMOUNT
                   ,'0'                  AS SORT_KEY
             FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-            WHERE  A.BASE_YYYYMM BETWEEN SUBSTR(TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM'),1,4)||'01' AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM')
+            WHERE  A.BASE_YYYYMM >= TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 YEAR, 'YYYY')||'01'
+            AND    A.BASE_YYYYMM <= TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 MONTH, 'YYYYMM')
             AND    A.SCENARIO_TYPE_CD IN ('AC0')
             AND    A.CAT_CD = 'BEP_SMART_DIV'
             AND    A.KPI_CD in ('SALE', 'COI')
@@ -335,7 +333,7 @@ BEGIN
                          ,ATTRIBUTE4 AS AU_CD
                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
                    WHERE  CODE_TYPE = 'SMART_SUBSDR_DISP') AU
-            WHERE  A.BASE_YYYYMM = C.BASE_YYYYMM
+            WHERE  A.APPLY_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
             AND    A.SCENARIO_TYPE_CD IN ('PR1','PR2','PR3')
             AND    A.CAT_CD = 'BEP_SMART_ML'
             AND    A.KPI_CD in ('SALE', 'COI')
@@ -349,7 +347,6 @@ BEGIN
             ) A
       GROUP BY A.COL_INDEX
               ,A.SUBSDR_CD
---              ,A.BASE_YYYYMM
               ,A.KPI_CD        
 
       UNION ALL
@@ -371,6 +368,7 @@ BEGIN
              AND    CODE_TYPE IN ( 'B2C_DIV','B2B_DIV')
             ) B
       WHERE  A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM')
+      AND    A.APPLY_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
       AND    A.SCENARIO_TYPE_CD IN ('PR2','PR3','PR4')
       AND    A.CAT_CD = 'BEP_SMART_DIV'
       AND    A.KPI_CD in ('SALE', 'COI')
@@ -399,6 +397,7 @@ BEGIN
              AND    CODE_TYPE IN ( 'B2C_DIV','B2B_DIV')
             ) B
       WHERE  A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM')
+      AND    A.APPLY_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
       AND    A.SCENARIO_TYPE_CD IN ('PR2','PR3','PR4')
       AND    A.CAT_CD = 'BEP_SMART_DIV'
       AND    A.KPI_CD in ('SALE', 'COI')
@@ -411,7 +410,6 @@ BEGIN
 -- 1-1.전월 이동 누계
       SELECT A.COL_INDEX
             ,A.SUBSDR_CD
---            ,A.BASE_YYYYMM
             ,'누계'
             ,A.KPI_CD
             ,SUM(A.AMOUNT)
@@ -432,9 +430,9 @@ BEGIN
                    WHERE  CODE_ID = P_DIV_CD
                    AND    CODE_TYPE IN ( 'B2C_DIV','B2B_DIV')
                   ) B
-            WHERE  A.BASE_YYYYMM BETWEEN SUBSTR(TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM'),1,4)||'01' AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM')
+            WHERE  A.BASE_YYYYMM >= TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 YEAR, 'YYYY')||'01'
+            AND    A.BASE_YYYYMM <= TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 MONTH, 'YYYYMM')
             AND    A.SCENARIO_TYPE_CD IN ('AC0')
-      --      AND    A.SCENARIO_TYPE_CD IN ('PR2','PR3','PR4')
             AND    A.CAT_CD = 'BEP_SMART_DIV'
             AND    A.KPI_CD in ('SALE', 'COI')
             AND    A.SUBSDR_CD = P_SUBSDR_CD
@@ -459,6 +457,7 @@ BEGIN
                    AND    CODE_TYPE IN ( 'B2C_DIV','B2B_DIV')
                   ) B
             WHERE  A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM')
+            AND    A.APPLY_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
             AND    A.SCENARIO_TYPE_CD IN ('PR2','PR3','PR4')
             AND    A.CAT_CD = 'BEP_SMART_DIV'
             AND    A.KPI_CD in ('SALE', 'COI')
@@ -470,7 +469,6 @@ BEGIN
             ) A
       GROUP BY A.COL_INDEX
               ,A.SUBSDR_CD
---              ,A.BASE_YYYYMM
               ,A.KPI_CD        
               
       UNION ALL
@@ -492,6 +490,7 @@ BEGIN
              AND    CODE_TYPE IN ( 'B2C_DIV','B2B_DIV')
             ) B
       WHERE  A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 2 MONTH, 'YYYYMM')
+      AND    A.APPLY_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
       AND    A.SCENARIO_TYPE_CD IN ('PR3','PR4')
       AND    A.CAT_CD = 'BEP_SMART_DIV'
       AND    A.KPI_CD in ('SALE', 'COI')
@@ -520,6 +519,7 @@ BEGIN
              AND    CODE_TYPE IN ( 'B2C_DIV','B2B_DIV')
             ) B
       WHERE  A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 2 MONTH, 'YYYYMM')
+      AND    A.APPLY_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
       AND    A.SCENARIO_TYPE_CD IN ('PR3','PR4')
       AND    A.CAT_CD = 'BEP_SMART_DIV'
       AND    A.KPI_CD in ('SALE', 'COI')
@@ -532,7 +532,6 @@ BEGIN
 -- 1-1.전전월 이동 누계
       SELECT A.COL_INDEX
             ,A.SUBSDR_CD
---            ,A.BASE_YYYYMM
             ,'누계'
             ,A.KPI_CD
             ,SUM(A.AMOUNT)
@@ -553,9 +552,9 @@ BEGIN
                    WHERE  CODE_ID = P_DIV_CD
                    AND    CODE_TYPE IN ( 'B2C_DIV','B2B_DIV')
                   ) B
-            WHERE  A.BASE_YYYYMM BETWEEN SUBSTR(TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 2 MONTH, 'YYYYMM'),1,4)||'01' AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM')
+            WHERE  A.BASE_YYYYMM >= TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 YEAR, 'YYYY')||'01'
+            AND    A.BASE_YYYYMM <= TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 MONTH, 'YYYYMM')
             AND    A.SCENARIO_TYPE_CD IN ('AC0')
-      --      AND    A.SCENARIO_TYPE_CD IN ('PR2','PR3','PR4')
             AND    A.CAT_CD = 'BEP_SMART_DIV'
             AND    A.KPI_CD in ('SALE', 'COI')
             AND    A.SUBSDR_CD = P_SUBSDR_CD
@@ -580,6 +579,7 @@ BEGIN
                    AND    CODE_TYPE IN ( 'B2C_DIV','B2B_DIV')
                   ) B
             WHERE  A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 2 MONTH, 'YYYYMM')
+            AND    A.APPLY_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
             AND    A.SCENARIO_TYPE_CD IN ('PR3','PR4')
             AND    A.CAT_CD = 'BEP_SMART_DIV'
             AND    A.KPI_CD in ('SALE', 'COI')
@@ -591,7 +591,6 @@ BEGIN
             ) A
       GROUP BY A.COL_INDEX
               ,A.SUBSDR_CD
---              ,A.BASE_YYYYMM
               ,A.KPI_CD        
               
       UNION ALL
@@ -613,6 +612,7 @@ BEGIN
              AND    CODE_TYPE IN ( 'B2C_DIV','B2B_DIV')
             ) B
       WHERE  A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 MONTH, 'YYYYMM')
+      AND    A.APPLY_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
       AND    A.SCENARIO_TYPE_CD IN ('PR1','PR2','PR3')
       AND    A.CAT_CD = 'BEP_SMART_DIV'
       AND    A.KPI_CD in ('SALE', 'COI')
@@ -641,6 +641,7 @@ BEGIN
              AND    CODE_TYPE IN ( 'B2C_DIV','B2B_DIV')
             ) B
       WHERE  A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 MONTH, 'YYYYMM')
+      AND    A.APPLY_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
       AND    A.SCENARIO_TYPE_CD IN ('PR1','PR2','PR3')
       AND    A.CAT_CD = 'BEP_SMART_DIV'
       AND    A.KPI_CD in ('SALE', 'COI')
@@ -653,7 +654,6 @@ BEGIN
 -- 1-1.당월 이동 누계
       SELECT A.COL_INDEX
             ,A.SUBSDR_CD
---            ,A.BASE_YYYYMM
             ,'누계'
             ,A.KPI_CD
             ,SUM(A.AMOUNT)
@@ -674,9 +674,9 @@ BEGIN
                    WHERE  CODE_ID = P_DIV_CD
                    AND    CODE_TYPE IN ( 'B2C_DIV','B2B_DIV')
                   ) B
-            WHERE  A.BASE_YYYYMM BETWEEN SUBSTR(TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 MONTH, 'YYYYMM'),1,4)||'01' AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM')
+            WHERE  A.BASE_YYYYMM >= TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 YEAR, 'YYYY')||'01'
+            AND    A.BASE_YYYYMM <= TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 MONTH, 'YYYYMM')
             AND    A.SCENARIO_TYPE_CD IN ('AC0')
-      --      AND    A.SCENARIO_TYPE_CD IN ('PR2','PR3','PR4')
             AND    A.CAT_CD = 'BEP_SMART_DIV'
             AND    A.KPI_CD in ('SALE', 'COI')
             AND    A.SUBSDR_CD = P_SUBSDR_CD
@@ -701,6 +701,7 @@ BEGIN
                    AND    CODE_TYPE IN ( 'B2C_DIV','B2B_DIV')
                   ) B
             WHERE  A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 MONTH, 'YYYYMM')
+            AND    A.APPLY_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
             AND    A.SCENARIO_TYPE_CD IN ('PR1','PR2','PR3')
             AND    A.CAT_CD = 'BEP_SMART_DIV'
             AND    A.KPI_CD in ('SALE', 'COI')
@@ -712,7 +713,6 @@ BEGIN
             ) A
       GROUP BY A.COL_INDEX
               ,A.SUBSDR_CD
---              ,A.BASE_YYYYMM
               ,A.KPI_CD        
 
       UNION ALL
@@ -726,6 +726,7 @@ BEGIN
             ,'0'                  AS SORT_KEY
       FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
       WHERE  A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 MONTH, 'YYYYMM')
+      AND    A.APPLY_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
       AND    A.SCENARIO_TYPE_CD IN ('PR1','PR2','PR3')
       AND    A.CAT_CD = 'BEP_SMART_DIV'
       AND    A.KPI_CD in ('SALE', 'COI')
@@ -746,6 +747,7 @@ BEGIN
             ,'0'                  AS SORT_KEY
       FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
       WHERE  A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 MONTH, 'YYYYMM')
+      AND    A.APPLY_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
       AND    A.SCENARIO_TYPE_CD IN ('PR1','PR2','PR3')
       AND    A.CAT_CD = 'BEP_SMART_DIV'
       AND    A.KPI_CD in ('SALE', 'COI')
@@ -758,7 +760,6 @@ BEGIN
 -- 1-1.당월 법인전체 누계
       SELECT A.COL_INDEX
             ,A.SUBSDR_CD
---            ,A.BASE_YYYYMM
             ,'누계'
             ,A.KPI_CD
             ,SUM(A.AMOUNT)
@@ -771,9 +772,9 @@ BEGIN
                   ,SUM(A.CURRM_USD_AMT) AS AMOUNT
                   ,'0'                  AS SORT_KEY
             FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-            WHERE  A.BASE_YYYYMM BETWEEN SUBSTR(TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 MONTH, 'YYYYMM'),1,4)||'01' AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 MONTH, 'YYYYMM')
+            WHERE  A.BASE_YYYYMM >= TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 YEAR, 'YYYY')||'01'
+            AND    A.BASE_YYYYMM <= TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 MONTH, 'YYYYMM')
             AND    A.SCENARIO_TYPE_CD IN ('AC0')
-      --      AND    A.SCENARIO_TYPE_CD IN ('PR2','PR3','PR4')
             AND    A.CAT_CD = 'BEP_SMART_DIV'
             AND    A.KPI_CD in ('SALE', 'COI')
             AND    A.SUBSDR_CD = P_SUBSDR_CD
@@ -790,6 +791,7 @@ BEGIN
                   ,'0'                  AS SORT_KEY
             FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
             WHERE  A.BASE_YYYYMM = TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 MONTH, 'YYYYMM')
+            AND    A.APPLY_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
             AND    A.SCENARIO_TYPE_CD IN ('PR1','PR2','PR3')
             AND    A.CAT_CD = 'BEP_SMART_DIV'
             AND    A.KPI_CD in ('SALE', 'COI')
@@ -801,7 +803,6 @@ BEGIN
             ) A
       GROUP BY A.COL_INDEX
               ,A.SUBSDR_CD
---              ,A.BASE_YYYYMM
               ,A.KPI_CD        
                     
       UNION ALL
@@ -816,7 +817,6 @@ BEGIN
       FROM (
             SELECT '전년실적'           AS COL_INDEX
                   ,A.SUBSDR_CD          AS SUBSDR_CD
---                  ,TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 YEAR, 'YYYY')||SUBSTR(A.APPLY_YYYYMM,5,2)  AS BASE_YYYYMM
                   ,TO_CHAR(to_date(A.APPLY_YYYYMM, 'YYYYMM') + 1 YEAR, 'YYYY')||SUBSTR(A.APPLY_YYYYMM,5,2)  AS BASE_YYYYMM
                   ,A.KPI_CD             AS KPI_CD
                   ,A.CURRM_USD_AMT      AS AMOUNT
@@ -873,7 +873,6 @@ BEGIN
 -- 5-2.전년실적 01~현재월
       SELECT Z.COL_INDEX
             ,Z.SUBSDR_CD
---            ,A.BASE_YYYYMM
             ,'누계'
             ,Z.KPI_CD
             ,SUM(Z.AMOUNT) AS AMOUNT
@@ -894,9 +893,8 @@ BEGIN
                     WHERE  CODE_ID = P_DIV_CD
                     AND    CODE_TYPE IN ( 'B2C_DIV','B2B_DIV')
                    ) B
-            WHERE  A.BASE_YYYYMM BETWEEN SUBSTR(TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 11 MONTH, 'YYYYMM'),1,4)||'01' AND SUBSTR(TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 11 MONTH, 'YYYYMM'),1,4)||'12'
---            WHERE  A.BASE_YYYYMM BETWEEN SUBSTR(TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 11 MONTH, 'YYYYMM'),1,4)||'01' AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 9 MONTH, 'YYYYMM')
---            AND    A.BASE_YYYYMM <= TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 YEAR, 'YYYY')||'12'
+            WHERE  A.BASE_YYYYMM >= TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 YEAR, 'YYYY')||'01'
+            AND    A.BASE_YYYYMM <= TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 1 YEAR, 'YYYY')||SUBSTR(TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM'),5,2)
             AND    A.SCENARIO_TYPE_CD = 'AC0'
             AND    A.CAT_CD = 'BEP_SMART_DIV'
             AND    A.KPI_CD in ('SALE', 'COI')
@@ -908,7 +906,6 @@ BEGIN
             ) Z
       GROUP BY Z.COL_INDEX
               ,Z.SUBSDR_CD
---              ,Z.BASE_YYYYMM
               ,Z.KPI_CD
 
       UNION ALL
@@ -1000,7 +997,7 @@ BEGIN
                    ,ATTRIBUTE4 AS AU_CD
              FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
              WHERE  CODE_TYPE = 'SMART_SUBSDR_DISP') AU
-      WHERE  A.BASE_YYYYMM = C.BASE_YYYYMM
+      WHERE  A.APPLY_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
       AND    A.SCENARIO_TYPE_CD IN ('PR0','PR1','PR2','PR3')
       AND    A.CAT_CD = 'BEP_SMART_ML'
       AND    A.KPI_CD in ('SALE', 'COI')
@@ -1008,7 +1005,6 @@ BEGIN
       AND    A.SUBSDR_CD = AU.SUBSDR_CD
       AND    A.AU_CD     = AU.AU_CD
       AND    A.DIV_CD = B.DIV_CD
---      AND    A.ZONE_RNR_CD = C.WEEK_NO
       AND    A.ATTRIBUTE1_VALUE = C.START_YMD
       GROUP BY C.SEQ
               ,A.SUBSDR_CD
@@ -1063,7 +1059,7 @@ BEGIN
                    ,ATTRIBUTE4 AS AU_CD
              FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
              WHERE  CODE_TYPE = 'SMART_SUBSDR_DISP') AU
-      WHERE  A.BASE_YYYYMM = C.BASE_YYYYMM
+      WHERE  A.APPLY_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
       AND    A.SCENARIO_TYPE_CD IN ('PR0','PR1','PR2','PR3')
       AND    A.CAT_CD = 'BEP_SMART_ML'
       AND    A.KPI_CD in ('SALE', 'COI')
@@ -1071,7 +1067,6 @@ BEGIN
       AND    A.SUBSDR_CD = AU.SUBSDR_CD
       AND    A.AU_CD     = AU.AU_CD
       AND    A.DIV_CD = B.DIV_CD
---      AND    A.ZONE_RNR_CD = C.WEEK_NO
       AND    A.ATTRIBUTE1_VALUE = C.START_YMD
       GROUP BY C.SEQ
               ,A.SUBSDR_CD
@@ -1081,7 +1076,6 @@ BEGIN
 -- 7-2.Most Likely 01~현재월
       SELECT Z.COL_INDEX
             ,Z.SUBSDR_CD
---            ,A.BASE_YYYYMM
             ,'누계'
             ,Z.KPI_CD
             ,SUM(Z.AMOUNT) AS AMOUNT
@@ -1129,7 +1123,7 @@ BEGIN
                           ) B
                    WHERE A.SEQ >= B.END_SEQ
                   ) C
-            WHERE  A.BASE_YYYYMM BETWEEN SUBSTR(P_BASIS_YYYYMM,1,4)||'01' AND P_BASIS_YYYYMM
+            WHERE  A.BASE_YYYYMM >= SUBSTR(P_BASIS_YYYYMM,1,4)||'01'
             AND    A.BASE_YYYYMM <= TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 YEAR, 'YYYY')||'12'
             AND    A.SCENARIO_TYPE_CD = 'AC0'
             AND    A.CAT_CD = 'BEP_SMART_DIV'
@@ -1187,8 +1181,7 @@ BEGIN
                          ,ATTRIBUTE4 AS AU_CD
                    FROM   IPTDW.IPTDW_RES_DIM_CORP_DISPLAY_MASTER
                    WHERE  CODE_TYPE = 'SMART_SUBSDR_DISP') AU
-            WHERE  A.BASE_YYYYMM = C.BASE_YYYYMM
-            AND    A.APPLY_YYYYMM <= TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 0 YEAR, 'YYYY')||'12'
+            WHERE  A.APPLY_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 1 MONTH, 'YYYYMM') AND TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') + 3 MONTH, 'YYYYMM')
             AND    A.SCENARIO_TYPE_CD IN ('PR0','PR1','PR2','PR3')
             AND    A.CAT_CD = 'BEP_SMART_ML'
             AND    A.KPI_CD in ('SALE', 'COI')
@@ -1196,7 +1189,6 @@ BEGIN
             AND    A.SUBSDR_CD = AU.SUBSDR_CD
             AND    A.AU_CD     = AU.AU_CD
             AND    A.DIV_CD = B.DIV_CD
---            AND    A.ZONE_RNR_CD = C.WEEK_NO
             AND    A.ATTRIBUTE1_VALUE = C.START_YMD
             GROUP BY C.SEQ
                     ,A.SUBSDR_CD
@@ -1205,7 +1197,6 @@ BEGIN
             ) Z
       GROUP BY Z.COL_INDEX
               ,Z.SUBSDR_CD
---              ,Z.BASE_YYYYMM
               ,Z.KPI_CD
                                           
     WITH UR;
