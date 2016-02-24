@@ -70,7 +70,6 @@ SELECT /*+ PARALLEL(8) */
       ,MIN(LOAD_DATE)
 FROM   TB_DSM_KPI_DIV_B2B_S
 WHERE  BASE_YYYYMM BETWEEN '201301' AND '201601'
-AND    SCENARIO_TYPE_CD IN ('AC0','PR1','PR2','PR3','PR4')
 AND    ldgr_type_cd   = '1' -- 연결 장부 기준 
 AND    subsdr_type_cd = 'S' -- 판매법인(제판포함)
 AND    ACCT_CD IN ( 'BEP20000B2B'   -- 순매출B2B
@@ -80,9 +79,6 @@ AND    ACCT_CD IN ( 'BEP20000B2B'   -- 순매출B2B
                    ,'BEP20000000'
                    ,'BEP60000000'
                    ,'BACKLOGBALAMT'   -- 수주잔고
-                   ,'BBRATIO05W'
-                   ,'BBRATIO13W'
-                   ,'BBRATIO52W'   -- BBRATIO
                    ,'BEP20000B2BP' -- 순매출(프로젝트)
                    )                                   
 GROUP BY SUBSTR(PROD_CD,1,3)

@@ -24,6 +24,7 @@ BEGIN
   /*  version  작성자  일      자  내                 용                             요   청   자 */
   /*  -------  ------  ----------  ------------------------------------------------  ------------ */
   /*  1.0      shlee   2016.02.02  최초 작성                                                      */
+  /*  1.0      shlee   2016.02.23  INF-T에서 직접 조회로 변경                                     */
   /************************************************************************************************/
     DECLARE v_etl_job_no                 VARCHAR(40)   DEFAULT 'SP_CD_RES_SMR_B2B_CROSSSALES';
     DECLARE v_load_start_timestamp       TIMESTAMP     DEFAULT NULL;
@@ -63,36 +64,6 @@ BEGIN
                     WHEN B.SEQ = 2 THEN A.BASE_YYYYMM END
           
       UNION ALL
-/*
--- 2.B2B Only
-      SELECT 'B2B Only'           AS COL_INDEX
-            ,A.KPI_CD             AS KPI_CD
-            ,CASE WHEN B.SEQ = 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
-                  WHEN B.SEQ = 2 THEN A.BASE_YYYYMM END        AS BASE_YYYYMM
-            ,SUM(A.CURRM_USD_AMT) AS AMOUNT
-            ,0 AS DISP_SEQ
-            ,'B2B Only'  AS KOR_NM
-            ,'B2B Only'  AS ENG_NM
-      FROM   IPTDW.IPTDW_RES_KPI_SUBSDR_CNTRY A
-            ,(SELECT 1 AS SEQ FROM SYSIBM.SYSDUMMY1 UNION ALL
-              SELECT 2 AS SEQ FROM SYSIBM.SYSDUMMY1) B
-            ,(
-              SELECT CODE_ID AS DIV_CD
-                    ,ATTRIBUTE1 AS DIV_KOR_NM
-                    ,ATTRIBUTE2 AS DIV_ENG_NM
-              FROM   IPTDW.IPTDW_RES_DIM_CODES
-              WHERE  CODE_TYPE = 'B2B_DIV'      
-             ) C
-      WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 24 MONTH, 'YYYYMM') AND P_BASIS_YYYYMM
-      AND    A.SUBSDR_CD = P_SUBSDR_CD
-      AND    A.SCENARIO_TYPE_CD = 'AC0'
-      AND    A.KPI_CD IN ('SALE','CROSS_BORDER','CROSS_BU')
-      AND    A.CAT_CD IN ('BEP_SMART_DIV','BEP_SMART_CROSS')
-      AND    A.DIV_CD = C.DIV_CD
-      GROUP BY A.KPI_CD
-              ,CASE WHEN B.SEQ = 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
-                    WHEN B.SEQ = 2 THEN A.BASE_YYYYMM END
-*/
 
 -- 2.B2B Only
       SELECT 'B2B Only'           AS COL_INDEX
@@ -143,9 +114,6 @@ BEGIN
               SELECT 'CROSS_BU'     AS KPI_CD FROM SYSIBM.SYSDUMMY1) D
       WHERE  A.BASE_YYYYMM BETWEEN TO_CHAR(to_date(P_BASIS_YYYYMM, 'YYYYMM') - 24 MONTH, 'YYYYMM') AND P_BASIS_YYYYMM
       AND    A.SUBSDR_CD = P_SUBSDR_CD
---      AND    A.SCENARIO_TYPE_CD = 'AC0'
---      AND    A.KPI_CD IN ('SALE')
---      AND    A.CAT_CD IN ('BEP_SMART_DIV')
       GROUP BY D.KPI_CD
               ,CASE WHEN B.SEQ = 1 THEN SUBSTR(A.BASE_YYYYMM,1,4)
                     WHEN B.SEQ = 2 THEN A.BASE_YYYYMM END
