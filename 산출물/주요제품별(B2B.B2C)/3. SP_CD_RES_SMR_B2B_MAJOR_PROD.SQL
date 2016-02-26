@@ -173,7 +173,9 @@ BEGIN
             ,A.SUBSDR_CD          AS SUBSDR_CD
             ,'전년대비'        AS BASE_YYYYMM
             ,A.KPI_CD             AS KPI_CD
-            ,CASE WHEN A.KPI_CD = 'SALE' THEN (B.AMOUNT - A.AMOUNT) / A.AMOUNT
+            ,CASE WHEN A.KPI_CD = 'SALE' THEN CASE COALESCE(A.AMOUNT,0)
+                                                   WHEN 0 THEN 0
+                                                   ELSE (B.AMOUNT - A.AMOUNT) / A.AMOUNT END
                   WHEN A.KPI_CD = 'COI'  THEN B.AMOUNT - A.AMOUNT END AS AMOUNT
             ,'0'                  AS SORT_KEY
             ,'합계'  AS KOR_NM
@@ -230,7 +232,9 @@ BEGIN
              ,A.SUBSDR_CD          AS SUBSDR_CD
              ,'전년대비'        AS BASE_YYYYMM
              ,A.KPI_CD             AS KPI_CD
-             ,CASE WHEN A.KPI_CD = 'SALE' THEN (B.AMOUNT - A.AMOUNT) / A.AMOUNT
+             ,CASE WHEN A.KPI_CD = 'SALE' THEN CASE COALESCE(A.AMOUNT,0)
+                                                    WHEN 0 THEN 0
+                                                    ELSE (B.AMOUNT - A.AMOUNT) / A.AMOUNT END
                    WHEN A.KPI_CD = 'COI'  THEN B.AMOUNT - A.AMOUNT END AS AMOUNT
              ,'0'                  AS SORT_KEY
              ,A.KOR_NM AS KOR_NM
@@ -326,7 +330,9 @@ BEGIN
              ,A.SUBSDR_CD          AS SUBSDR_CD
              ,'전년대비'        AS BASE_YYYYMM
              ,A.KPI_CD             AS KPI_CD
-             ,CASE WHEN A.KPI_CD = 'SALE' THEN (B.AMOUNT - A.AMOUNT) / A.AMOUNT
+             ,CASE WHEN A.KPI_CD = 'SALE' THEN CASE COALESCE(A.AMOUNT,0)
+                                                    WHEN 0 THEN 0
+                                                    ELSE (B.AMOUNT - A.AMOUNT) / A.AMOUNT END
                    WHEN A.KPI_CD = 'COI'  THEN B.AMOUNT - A.AMOUNT END AS AMOUNT
              ,'0'                  AS SORT_KEY
              ,A.KOR_NM AS KOR_NM

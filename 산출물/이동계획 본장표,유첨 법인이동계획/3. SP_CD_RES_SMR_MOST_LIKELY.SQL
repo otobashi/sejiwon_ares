@@ -2,7 +2,7 @@ CREATE OR REPLACE PROCEDURE ETL_IDW.SP_CD_RES_SMR_MOST_LIKELY (
      IN P_BASIS_YYYYMM VARCHAR(6),
      IN P_SUBSDR_CD VARCHAR(8),
      IN P_CODE_TYPE VARCHAR(10),
-     IN P_YYYYMM VARCHAR(8)
+     IN P_YYYYMMDD VARCHAR(8)
      )
   DYNAMIC RESULT SETS 1
   LANGUAGE SQL
@@ -944,6 +944,7 @@ BEGIN
              FROM   IPTDW.IPTDW_RES_DIM_CODES
              WHERE  CODE_TYPE = P_CODE_TYPE
             ) B
+            -- 젤 힘들었던 부분 요 아래주차를 4개로 확정해서 만듭니다.
            ,(SELECT A.WEEK_NO
                    ,A.BASE_YYYYMM
                    ,A.THU
@@ -956,7 +957,7 @@ BEGIN
                            ,A.ATTRIBUTE3 AS START_YMD
                      FROM   IPTDW.IPTDW_RES_DIM_CODES A
                      WHERE  CODE_TYPE = 'SMART_WEEK'
-                     AND    TO_CHAR(to_date(P_YYYYMM, 'YYYYMMDD') - 1 day, 'YYYYMMDD') >= ATTRIBUTE3
+                     AND    TO_CHAR(to_date(P_YYYYMMDD, 'YYYYMMDD') - 1 day, 'YYYYMMDD') >= ATTRIBUTE3
                     ) A
                    ,(SELECT MAX(SEQ) AS FROM_SEQ, MAX(SEQ) - 3 AS END_SEQ
                      FROM  (
@@ -966,7 +967,7 @@ BEGIN
                                         ,ROWNUMBER() OVER() AS SEQ
                                   FROM   IPTDW.IPTDW_RES_DIM_CODES
                                   WHERE  CODE_TYPE = 'SMART_WEEK'
-                                  AND    TO_CHAR(to_date(P_YYYYMM, 'YYYYMMDD') - 1 day, 'YYYYMMDD') >= ATTRIBUTE3
+                                  AND    TO_CHAR(to_date(P_YYYYMMDD, 'YYYYMMDD') - 1 day, 'YYYYMMDD') >= ATTRIBUTE3
                                   )
                     ) B
              WHERE A.SEQ >= B.END_SEQ
@@ -1017,7 +1018,7 @@ BEGIN
                            ,A.ATTRIBUTE3 AS START_YMD
                      FROM   IPTDW.IPTDW_RES_DIM_CODES A
                      WHERE  CODE_TYPE = 'SMART_WEEK'
-                     AND    TO_CHAR(to_date(P_YYYYMM, 'YYYYMMDD') - 1 day, 'YYYYMMDD') >= ATTRIBUTE3
+                     AND    TO_CHAR(to_date(P_YYYYMMDD, 'YYYYMMDD') - 1 day, 'YYYYMMDD') >= ATTRIBUTE3
                     ) A
                    ,(SELECT MAX(SEQ) AS FROM_SEQ, MAX(SEQ) - 3 AS END_SEQ
                      FROM  (
@@ -1027,7 +1028,7 @@ BEGIN
                                         ,ROWNUMBER() OVER() AS SEQ
                                   FROM   IPTDW.IPTDW_RES_DIM_CODES
                                   WHERE  CODE_TYPE = 'SMART_WEEK'
-                                  AND    TO_CHAR(to_date(P_YYYYMM, 'YYYYMMDD') - 1 day, 'YYYYMMDD') >= ATTRIBUTE3
+                                  AND    TO_CHAR(to_date(P_YYYYMMDD, 'YYYYMMDD') - 1 day, 'YYYYMMDD') >= ATTRIBUTE3
                                   )
                     ) B
              WHERE A.SEQ >= B.END_SEQ
@@ -1084,7 +1085,7 @@ BEGIN
                                  ,A.ATTRIBUTE3 AS START_YMD
                            FROM   IPTDW.IPTDW_RES_DIM_CODES A
                            WHERE  CODE_TYPE = 'SMART_WEEK'
-                           AND    TO_CHAR(to_date(P_YYYYMM, 'YYYYMMDD') - 1 day, 'YYYYMMDD') >= ATTRIBUTE3
+                           AND    TO_CHAR(to_date(P_YYYYMMDD, 'YYYYMMDD') - 1 day, 'YYYYMMDD') >= ATTRIBUTE3
                           ) A
                          ,(SELECT MAX(SEQ) AS FROM_SEQ, MAX(SEQ) - 3 AS END_SEQ
                            FROM  (
@@ -1094,7 +1095,7 @@ BEGIN
                                               ,ROWNUMBER() OVER() AS SEQ
                                         FROM   IPTDW.IPTDW_RES_DIM_CODES
                                         WHERE  CODE_TYPE = 'SMART_WEEK'
-                                        AND    TO_CHAR(to_date(P_YYYYMM, 'YYYYMMDD') - 1 day, 'YYYYMMDD') >= ATTRIBUTE3
+                                        AND    TO_CHAR(to_date(P_YYYYMMDD, 'YYYYMMDD') - 1 day, 'YYYYMMDD') >= ATTRIBUTE3
                                         )
                           ) B
                    WHERE A.SEQ >= B.END_SEQ
@@ -1137,7 +1138,7 @@ BEGIN
                                  ,A.ATTRIBUTE3 AS START_YMD
                            FROM   IPTDW.IPTDW_RES_DIM_CODES A
                            WHERE  CODE_TYPE = 'SMART_WEEK'
-                           AND    TO_CHAR(to_date(P_YYYYMM, 'YYYYMMDD') - 1 day, 'YYYYMMDD') >= ATTRIBUTE3
+                           AND    TO_CHAR(to_date(P_YYYYMMDD, 'YYYYMMDD') - 1 day, 'YYYYMMDD') >= ATTRIBUTE3
                           ) A
                          ,(SELECT MAX(SEQ) AS FROM_SEQ, MAX(SEQ) - 3 AS END_SEQ
                            FROM  (
@@ -1147,7 +1148,7 @@ BEGIN
                                               ,ROWNUMBER() OVER() AS SEQ
                                         FROM   IPTDW.IPTDW_RES_DIM_CODES
                                         WHERE  CODE_TYPE = 'SMART_WEEK'
-                                        AND    TO_CHAR(to_date(P_YYYYMM, 'YYYYMMDD') - 1 day, 'YYYYMMDD') >= ATTRIBUTE3
+                                        AND    TO_CHAR(to_date(P_YYYYMMDD, 'YYYYMMDD') - 1 day, 'YYYYMMDD') >= ATTRIBUTE3
                                         )
                           ) B
                    WHERE A.SEQ >= B.END_SEQ
@@ -1164,7 +1165,7 @@ BEGIN
             AND    A.SUBSDR_CD = AU.SUBSDR_CD
             AND    A.AU_CD     = AU.AU_CD
             AND    A.DIV_CD = B.DIV_CD
-            AND    A.ATTRIBUTE1_VALUE = C.START_YMD
+            AND    A.ATTRIBUTE1_VALUE = C.START_YMD  --주의 월
             GROUP BY C.SEQ
                     ,A.SUBSDR_CD
                     ,A.KPI_CD
